@@ -58,10 +58,10 @@ void load(string path){
   int val;
   string line;
   FILE *fp;
+  int data[DEFAULT_BUFFER_SIZE*2];
   
   while(getline(myFile, line)){
     stringstream ss(line);
-    int data[DEFAULT_BUFFER_SIZE*2];
   
     //Decide when to push the component to disk
     if(count % (DEFAULT_BUFFER_SIZE*2) == 0 && count != 0){
