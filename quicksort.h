@@ -14,11 +14,12 @@ using namespace std;
 
 void merge(vector<int> *arr[], int N, int primary_index, int l, int m, int r);
 void mergeSort(vector<int> *arr[], int N, int primary_key, int l, int r);
-void in_memory_sort(FILE* fp, size_t size);
-void external_sort(FILE *fp, size_t size);
-string sort(string filename);
-void createInitialRuns(FILE *fp, int run_size, int num_ways);
+void in_memory_sort(FILE* fp, string filename, size_t size);
+void external_sort(FILE *fp, string filename, size_t size);
+void sort(string filename);
+void createInitialRuns(FILE *fp, int run_size, int num_ways, size_t size);
 void mergeFiles(FILE* out, int n, int k);
+string create_data();
 
 void merge(vector<int> *arr[], int N, int primary_index, int l, int m, int r)
 {
