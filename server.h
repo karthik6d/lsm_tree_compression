@@ -37,4 +37,4 @@ int read(int key);
 void write(int key, int value);
 void del(int key);
 int read_data_to_LSM(component* curr_comp);
-int binarySearch(vector<int> *data, int l, int r, int x); 
+int binarySearch(vector<int> *data, int l, int r, int x);

@@ -12,17 +12,27 @@
 using namespace std;
 LSM_Tree* current_db;
 vector <component*> components;
+int buffer[DEFAULT_BUFFER_SIZE];
+int buffer_count;
+int component_number;
+
 
 int read_data_to_LSM(component* curr_comp, int valuesin){
   //Read data from the file
   FILE *fp;
 
+  // valuesin reports how many values of component already read
+  // check if the whole component been read
   if(valuesin >= curr_comp->element_count){
     int breakval = curr_comp-> element_count + 1;
     return breakval;
   }
+
+  // open file and set start ptr to values in times 4 bytes per val
   fp = fopen(curr_comp->filename.c_str(), "r");
   fseek (fp , 4*valuesin , SEEK_SET);
+
+
   //struct stat st;
   //size_t col_size=0;
   //Get file size of the col_data
@@ -34,15 +44,20 @@ int read_data_to_LSM(component* curr_comp, int valuesin){
 
   //int number_members = (col_size / sizeof(int));
   int data_ptr[DEFAULT_BUFFER_SIZE];
+
+  // read as many values fit in main memory
   size_t nmemb = fread(data_ptr, 4, DEFAULT_BUFFER_SIZE, fp);
   fclose(fp);
   vector<int> *data = new vector<int>;
 
+  // add to data vector
   for(int i = 0; i < (int)nmemb; i++){
     data->push_back(data_ptr[i]);
   }
   curr_comp->values = data;
   int total_elements_read = valuesin + (int)nmemb;
+
+  // return how many elements of component have been read
   return total_elements_read;
 }
 
@@ -54,6 +69,9 @@ void create(string db_name){
   db->C0 = first_comp;
 
   current_db = db;
+  buffer_count = 0;
+  component_number = 0;
+
 }
 
 void load(string path){
@@ -63,7 +81,6 @@ void load(string path){
   if(!myFile.is_open()) throw std::runtime_error("Could not open file");
 
   //Loop through the data
-  int component_number = 0;
   int level = 0;
   int count = 0;
   int level_count = 0;
@@ -77,7 +94,11 @@ void load(string path){
   while(getline(myFile, line)){
     stringstream ss(line);
 
+
+    // intswritten keeps track of how many ints written to component
+    // create new component every times its reset to 0
     if (intswritten == 0){
+      //size of component depends on level, main mem size, and level ratio
       componentsize = (int)pow(T, level) * DEFAULT_BUFFER_SIZE;
       string file_name("C");
       file_name.append(to_string(component_number));
@@ -98,7 +119,7 @@ void load(string path){
       component_number += 1;
     }
 
-    //Decide when to push the component to disk
+    //Decide when to push the read vector to disk, once main mem full
     if(count == DEFAULT_BUFFER_SIZE){
       count = 0;
       //cout << "Writing File" << count << "\n";
@@ -106,6 +127,7 @@ void load(string path){
       fwrite(data, sizeof(int), sizeof(data)/sizeof(int), fp);
       fclose(fp);
 
+      // check if component has been filled and then sort it
       if(intswritten == componentsize){
         new_comp->element_count = intswritten;
         intswritten == 0;
@@ -142,22 +164,46 @@ void load(string path){
 }
 
 int read(int key){
+  int neg_found = 0;
+  // iterate through components
   for(int i = 0; i < components.size();i++){
     component* new_comp = components[i];
     int values_in = read_data_to_LSM(new_comp,0);
+    int new_key = key * -1;
 
+    // check if all values in the component have been read, if not, keep
+    // reading component
     while(values_in <= new_comp->element_count){
       vector<int> *data = new_comp->values;
 
+      // binary search through mainmemory to find key, if not keep searching
+
       int value = binarySearch(data,0,data.size();key);
+      int neg_value = binarySearch(data,0,data.size();new_key);
+
+      // if value found (something not -1 returned), return it
+
+      // if ((value != -1)&&(neg_value == -1)){
+      //   return value;
+      // } else if ((value == -1)&&(neg_value != -1)){
+      //   neg_found = 1;
+      //   break;
+      // } else if ((value != -1)&&(neg_value != -1)){
+      //
+      //
+      // }
 
       if (value != -1){
-        return value
+        return value;
       }
 
+      delete new_comp->values;
       values_in = read_data_to_LSM(new_comp,values_in);
 
+    }
 
+    if(neg_found == 1){
+      break;
     }
 
   }
@@ -166,16 +212,96 @@ int read(int key){
 }
 
 void write(int key, int value){
-  cout << key << "\t" << value << "\n";
-}
+  if (buffer_count != DEFAULT_BUFFER_SIZE){
+    buffer[buffer_count] = key;
+    buffer[buffer_count+1] = value;
+    buffer_count = buffer_count + 2;
+  } else {
+    buffer_count = 0;
+
+    string file_name("C");
+    file_name.append(to_string(component_number));
+    file_name.append(".dat");
+
+    component* new_comp = (component*)malloc(sizeof(component));
+    new_comp->values = NULL;
+    new_comp->filename = file_name;
+    new_comp->next_component = NULL;
+    new_comp->level = 0;
+    new_comp->component_number = component_number;
+    component_number = component_number + 1;
+
+    //Add new_comp to vector
+    components.insert(0,new_comp);
+
+    fp = fopen(file_name.c_str(), "a");
+    fwrite(buffer, sizeof(int), sizeof(data)/sizeof(int), fp);
+    fclose(fp);
+
+    vector<string> filename;
+    filename.push_back(file_name);
+    sort(filename);
+
+    int level;
+    int level_counter = 0;
+    for(int i = 0; i < components.size();i++){
+      if(i > 0){
+        if(components[i]->level != components[i-1]->level){
+          level_counter = 1;
+        }
+       else {
+          level_counter = level_counter + 1;
+        }
+      }
+
+      if(level_counter > T) {
+        level_counter = 0;
+        vector<string> merge_filenames;
+
+        string merge_file_name("C");
+        merge_file_name.append(to_string(component_number));
+        merge_file_name.append(".dat");
+
+        component* new_comp2 = (component*)malloc(sizeof(component));
+        new_comp2->values = NULL;
+        new_comp2->filename = merge_file_name;
+        new_comp2->next_component = NULL;
+        new_comp2->level = components[i]->level + 1;
+        new_comp2->component_number = component_number;
+        component_number = component_number + 1;
+        //Add new_comp to vector
+        components.insert(i+1,new_comp2);
+
+        for(int j = 0; j < T; j++){
+          delete components[i - j]->values;
+          string curr_filename = components[i - j]->filename;
+          free(components[i - j]);
+          merge_filenames.push_back(curr_filename);
+        }
+
+        merge_filenames.push_back(merge_file_name);
+        sort(merge_filenames);
+
+        components.erase(i-T+1,i+1);
+
+        i = i - T;
+
+      }
+
+      }
+    }
+
+  }
+
 
 void del(int key){
-  cout << "in delete\n";
-  cout << key << "\n";
+  new_key = key * -1;
+  write(new_key, 0);
 }
 
 void update(int key, int update_value){
-  cout << key << update_value << "\n";
+  del(key);
+  write(key,update_value);
 }
 
 
