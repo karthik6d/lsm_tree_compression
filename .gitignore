@@ -45,3 +45,6 @@ minheap
 
 # keep the tests folder
 !tests/*
+
+# ignore vscode folder
+.vscode

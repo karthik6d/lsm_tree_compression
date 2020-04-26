@@ -8,6 +8,7 @@ import (
 	"math"
 	"math/rand"
 	"os"
+	"time"
 )
 
 type Entry struct {
@@ -90,6 +91,9 @@ var keyDistributions = map[KeyDistribution](func(int) int32){0: uniformKey, 1: s
 var valueDistributions = map[ValueDistribution](func(int32) int32){0: uniformValue, 1: sameValue}
 
 func main() {
+	// seeding the random number generator
+	rand.Seed(time.Now().UnixNano())
+
 	// parse options for the generator
 	N := flag.Int("N", int(math.Pow(10, 7)), "the number of entries to start the db with")
 	numQueries := flag.Int("queries", int(math.Pow(10, 7)), "the number of queries to generate")
