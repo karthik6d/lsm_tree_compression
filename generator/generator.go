@@ -153,6 +153,7 @@ func main() {
 
 	queryWriter := bufio.NewWriter(queryFile)
 
+	queryWriter.WriteString("create db\n")
 	queryWriter.WriteString(fmt.Sprintf("load %s\n", *dataFileName))
 
 	queries := make([]Query, 0)
