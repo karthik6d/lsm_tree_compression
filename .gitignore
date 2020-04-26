@@ -31,11 +31,17 @@
 *.out
 *.app
 
+# random binaries and files
 data
 queries
 workload-generator
-generator
 *.csv
 *.exp
 *.dsl
 gen
+quicksort
+server
+minheap
+
+# keep the tests folder
+!tests/*
