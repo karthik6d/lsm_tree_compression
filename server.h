@@ -29,6 +29,8 @@ typedef struct kv {
 // Structure for a component in LSM Tree
 typedef struct component {
   string filename;
+  int min_value;
+  int max_value;
 
   pair<bool, int> read(int key);
   vector<kv> get_kvs();

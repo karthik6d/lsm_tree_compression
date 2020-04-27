@@ -17,6 +17,7 @@
 using namespace std;
 LSM_Tree* current_db;
 int component_count = 0;
+int skips = 0;
 
 vector<workload_entry> workload;
 
@@ -78,8 +79,21 @@ component create_component(vector<kv> kvs) {
   // create the final list of updates
   vector<kv> final_kvs;
 
+  int min_value = INT32_MAX;
+  int max_value = INT32_MIN;
+
   for (auto pair : m) {
-    final_kvs.push_back((kv){pair.first, pair.second});
+    final_kvs.push_back({pair.first, pair.second});
+
+    int val = pair.first < 0 ? -pair.first : pair.first;
+
+    if (val < min_value) {
+      min_value = val;
+    }
+
+    if (val > max_value) {
+      max_value = val;
+    }
   }
 
   // sort the list of updates
@@ -105,7 +119,9 @@ component create_component(vector<kv> kvs) {
 
   data_file.close();
 
-  return {component_file_name};
+  return {.filename = component_file_name,
+          .min_value = min_value,
+          .max_value = max_value};
 }
 
 void LSM_Tree::insert_component(component c) {
@@ -176,6 +192,12 @@ pair<bool, int> level::read(int key) {
   for (auto it = this->components.rbegin(); it != this->components.rend();
        ++it) {
     auto c = *it;
+
+    // skip components based on fence posts
+    if (key < c.min_value || key > c.max_value) {
+      skips++;
+      continue;
+    }
 
     pair<bool, int> res = c.read(key);
 
@@ -265,6 +287,7 @@ int main(int argc, char** argv) {
 
   auto result = execute_workload();
 
+  cout << "skipped components " << skips << endl;
   cout << "finished workload, writing results to file" << endl;
 
   ofstream f("hello.res");
@@ -285,7 +308,9 @@ vector<int> execute_workload() {
   for (auto e : workload) {
     i++;
 
-    cout << "\r" << i << "/" << workload.size() << flush;
+    if (i % 1000 == 0) {
+      cout << "\r" << i << "/" << workload.size() << flush;
+    }
 
     switch (e.type) {
       case read_query: {
