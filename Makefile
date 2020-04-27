@@ -12,6 +12,7 @@ clean:
 	rm -f server
 	rm -rf data
 	rm -f *.res
+	rm -f perf.data*
 
 gen: generator/generator.go
 	cd generator && go build . && mv generator ../gen
