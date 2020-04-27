@@ -1,17 +1,18 @@
-#include <string>
+#include "server.h"
+
+#include <assert.h>
 #include <stdio.h>
+#include <sys/stat.h>
+
+#include <cmath>
+#include <cstdio>
 #include <fstream>
 #include <iostream>
-#include <unordered_map>
-#include "assert.h"
-#include <vector>
-#include <cstdio>
 #include <sstream>
-#include <cmath>
-#include <sys/stat.h>
+#include <string>
 #include <tuple>
-#include "server.h"
-#include <sys/stat.h>
+#include <unordered_map>
+#include <vector>
 
 using namespace std;
 LSM_Tree* current_db;
@@ -19,7 +20,7 @@ int component_count = 0;
 
 vector<workload_entry> workload;
 
-void create(string db_name){
+void create(string db_name) {
   LSM_Tree* db = new LSM_Tree();
   db->name = db_name;
   current_db = db;
@@ -47,7 +48,7 @@ void load(string path) {
 void LSM_Tree::write(int key, int value) {
   // if it fits into the top-level buffer, just add it there
   if (this->buffer.size() < DEFAULT_BUFFER_SIZE) {
-    this->buffer.push_back({ key, value });
+    this->buffer.push_back({key, value});
     return;
   }
 
@@ -55,21 +56,15 @@ void LSM_Tree::write(int key, int value) {
   component c = create_component(this->buffer);
   this->insert_component(c);
   this->buffer.clear();
-  this->buffer.push_back({ key, value });
+  this->buffer.push_back({key, value});
 }
 
-void LSM_Tree::del(int key) {
-  this->write(-key, 0);
-}
+void LSM_Tree::del(int key) { this->write(-key, 0); }
 
-void LSM_Tree::update(int key, int value) {
-  this->write(key, value);
-}
+void LSM_Tree::update(int key, int value) { this->write(key, value); }
 
 // comparison function between key value pairs
-int compare_kvs(kv a, kv b) {
-  return a.key < b.key;
-}
+int compare_kvs(kv a, kv b) { return a.key < b.key; }
 
 component create_component(vector<kv> kvs) {
   unordered_map<int, int> m;
@@ -84,7 +79,7 @@ component create_component(vector<kv> kvs) {
   vector<kv> final_kvs;
 
   for (auto pair : m) {
-    final_kvs.push_back((kv) { pair.first, pair.second });
+    final_kvs.push_back((kv){pair.first, pair.second});
   }
 
   // sort the list of updates
@@ -103,14 +98,14 @@ component create_component(vector<kv> kvs) {
   ofstream data_file(component_file_name, ios::binary);
 
   // writing the key value pairs to the data file
-  for (kv k : final_kvs)  {
-    data_file.write((char*) &k.key, sizeof(k.key));
-    data_file.write((char*) &k.value, sizeof(k.value));
+  for (kv k : final_kvs) {
+    data_file.write((char*)&k.key, sizeof(k.key));
+    data_file.write((char*)&k.value, sizeof(k.value));
   }
 
   data_file.close();
 
-  return { component_file_name };
+  return {component_file_name};
 }
 
 void LSM_Tree::insert_component(component c) {
@@ -178,7 +173,8 @@ pair<bool, component> level::insert_component(component c) {
 }
 
 pair<bool, int> level::read(int key) {
-  for (auto it = this->components.rbegin(); it != this->components.rend(); ++it) {
+  for (auto it = this->components.rbegin(); it != this->components.rend();
+       ++it) {
     auto c = *it;
 
     pair<bool, int> res = c.read(key);
@@ -198,7 +194,7 @@ vector<kv> component::get_kvs() {
   kv k;
 
   do {
-    f.read((char *) &k, sizeof(k));
+    f.read((char*)&k, sizeof(k));
 
     if (f.eof()) {
       break;
@@ -222,7 +218,7 @@ pair<bool, int> component::read(int key) {
   return pair<bool, int>(true, kvs[res].value);
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
   if (argc != 2) {
     std::cout << "Need to pass in query file" << endl;
     return 1;
@@ -232,7 +228,7 @@ int main(int argc, char **argv) {
   ifstream query_file(argv[1]);
 
   // Parse through workload file
-  while(getline(query_file, output_str)) {
+  while (getline(query_file, output_str)) {
     istringstream ss(output_str);
     vector<string> elements;
 
@@ -242,25 +238,25 @@ int main(int argc, char **argv) {
       elements.push_back(word);
     } while (ss);
 
-    if(elements[0].compare("create") == 0){
+    if (elements[0].compare("create") == 0) {
       create(elements.at(1));
-    }
-    else if(elements[0].compare("load") == 0){
+
+    } else if (elements[0].compare("load") == 0) {
       load(elements.at(1));
-    }
-    else if(elements[0].compare("read") == 0){
-      workload.push_back((workload_entry) { read_query, stoi(elements[1]), 0 });
-    }
-    else if(elements[0].compare("write") == 0){
-      workload.push_back((workload_entry) { write_query, stoi(elements[1]), stoi(elements[2]) });
-    }
-    else if(elements[0].compare("delete") == 0){
-      workload.push_back((workload_entry) { delete_query, stoi(elements[1]) });
-    }
-    else if(elements[0].compare("update") == 0){
-      workload.push_back((workload_entry) { update_query, stoi(elements[1]), stoi(elements[2]) });
-    }
-    else {
+
+    } else if (elements[0].compare("read") == 0) {
+      workload.push_back({read_query, stoi(elements[1]), 0});
+
+    } else if (elements[0].compare("write") == 0) {
+      workload.push_back({write_query, stoi(elements[1]), stoi(elements[2])});
+
+    } else if (elements[0].compare("delete") == 0) {
+      workload.push_back({delete_query, stoi(elements[1])});
+
+    } else if (elements[0].compare("update") == 0) {
+      workload.push_back({update_query, stoi(elements[1]), stoi(elements[2])});
+
+    } else {
       throw runtime_error("Unknown command");
     }
   }
@@ -320,7 +316,6 @@ vector<int> execute_workload() {
       default: {
         throw runtime_error("Unsupported workload command");
       }
-
     }
   }
 
@@ -334,10 +329,10 @@ int binary_search_helper(vector<kv> data, int l, int r, int x) {
     return -1;
   }
 
-  int m = ( r + l ) / 2;
+  int m = (r + l) / 2;
 
   if (data[m].key > x) {
-    return binary_search_helper(data, l,m, x);
+    return binary_search_helper(data, l, m, x);
   } else if (data[m].key < x) {
     return binary_search_helper(data, m + 1, r, x);
   } else {

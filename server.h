@@ -1,13 +1,13 @@
-#include <string>
+#include <cstdio>
 #include <fstream>
 #include <iostream>
-#include <vector>
-#include <cstdio>
 #include <sstream>
-#include <tuple>
 #include <string>
+#include <tuple>
+#include <vector>
 
-#define DEFAULT_BUFFER_SIZE 4096 // Defines number of ints in the Main Buffer aka Main Memory
+#define DEFAULT_BUFFER_SIZE \
+  4096  // Defines number of ints in the Main Buffer aka Main Memory
 // #define T 2 // Size ratio between components
 #define COMPONENTS_PER_LEVEL 2
 
@@ -55,7 +55,7 @@ typedef struct LSM_Tree {
   void insert_component(component c);
 } LSM_Tree;
 
-//Declarations for server.cpp
+// Declarations for server.cpp
 void create(string db_name);
 void load(string path);
 int binary_search(vector<kv> data, int x);
