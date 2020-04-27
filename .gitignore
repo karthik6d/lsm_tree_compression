@@ -52,3 +52,5 @@ minheap
 .vscode
 
 .DS_Store
+
+perf.data*

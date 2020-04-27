@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <sys/stat.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <fstream>
@@ -338,9 +339,7 @@ vector<int> execute_workload() {
         break;
       }
 
-      default: {
-        throw runtime_error("Unsupported workload command");
-      }
+      default: { throw runtime_error("Unsupported workload command"); }
     }
   }
 

@@ -1,4 +1,4 @@
-.PHONY: clean format
+.PHONY: clean format profile
 
 CPPFLAGS = -std=c++11 -O3 -Wall
 
@@ -21,3 +21,7 @@ server: server.cpp server.h
 
 format:
 	clang-format -i *.cpp *.h
+
+profile: server
+	sudo perf record --call-graph dwarf ./server queries.dsl
+	sudo perf report
