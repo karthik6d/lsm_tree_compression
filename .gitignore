@@ -50,3 +50,5 @@ minheap
 
 # ignore vscode folder
 .vscode
+
+.DS_Store
