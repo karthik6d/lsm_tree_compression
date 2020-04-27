@@ -7,9 +7,9 @@
 #include <tuple>
 #include <string>
 
-#define DEFAULT_BUFFER_SIZE 4 // Defines number of ints in the Main Buffer aka Main Memory
-#define T 2 // Size ratio between components
-
+#define DEFAULT_BUFFER_SIZE 4096 // Defines number of ints in the Main Buffer aka Main Memory
+// #define T 2 // Size ratio between components
+#define COMPONENTS_PER_LEVEL 2
 
 using namespace std;
 
@@ -31,6 +31,7 @@ typedef struct component {
   string filename;
 
   pair<bool, int> read(int key);
+  vector<kv> get_kvs();
 } component;
 
 typedef struct level {
@@ -38,6 +39,7 @@ typedef struct level {
   int level_capacity;
 
   pair<bool, int> read(int key);
+  pair<bool, component> insert_component(component);
 } level;
 
 // Structure for LSM Tree
@@ -50,17 +52,13 @@ typedef struct LSM_Tree {
   pair<bool, int> read(int key);
   void del(int key);
   void update(int key, int value);
-  void insert_component(vector<kv> kvs);
   void insert_component(component c);
 } LSM_Tree;
 
 //Declarations for server.cpp
 void create(string db_name);
 void load(string path);
-int read(int key);
-void write(int key, int value);
-void del(int key);
-int read_data_to_LSM(component* curr_comp);
 int binary_search(vector<kv> data, int x);
+component create_component(vector<kv> kvs);
 
 vector<int> execute_workload();

@@ -1,4 +1,5 @@
 #include <string>
+#include <stdio.h>
 #include <fstream>
 #include <iostream>
 #include <unordered_map>
@@ -51,9 +52,18 @@ void LSM_Tree::write(int key, int value) {
   }
 
   // otherwise, we have to create a new component for it
-  this->insert_component(this->buffer);
+  component c = create_component(this->buffer);
+  this->insert_component(c);
   this->buffer.clear();
   this->buffer.push_back({ key, value });
+}
+
+void LSM_Tree::del(int key) {
+  this->write(-key, 0);
+}
+
+void LSM_Tree::update(int key, int value) {
+  this->write(key, value);
 }
 
 // comparison function between key value pairs
@@ -61,7 +71,7 @@ int compare_kvs(kv a, kv b) {
   return a.key < b.key;
 }
 
-void LSM_Tree::insert_component(vector<kv> kvs) {
+component create_component(vector<kv> kvs) {
   unordered_map<int, int> m;
 
   // iterate over the vector and collect the last updates
@@ -100,17 +110,23 @@ void LSM_Tree::insert_component(vector<kv> kvs) {
 
   data_file.close();
 
-  component c = { component_file_name };
-
-  this->insert_component(c);
+  return { component_file_name };
 }
 
 void LSM_Tree::insert_component(component c) {
-  if (this->levels.size() == 0) {
-    this->levels.push_back(level());
-  }
+  int i = 0;
 
-  this->levels[0].components.push_back(c);
+  pair<bool, component> res;
+
+  do {
+    if (i >= this->levels.size()) {
+      this->levels.push_back(level());
+    }
+
+    res = this->levels[i++].insert_component(c);
+
+    c = res.second;
+  } while (res.first);
 }
 
 pair<bool, int> LSM_Tree::read(int key) {
@@ -137,6 +153,30 @@ pair<bool, int> LSM_Tree::read(int key) {
   return pair<bool, int>(false, 0);
 }
 
+pair<bool, component> level::insert_component(component c) {
+  if (this->components.size() < COMPONENTS_PER_LEVEL) {
+    this->components.push_back(c);
+
+    return pair<bool, component>(false, component());
+  }
+
+  vector<kv> all_kvs;
+
+  for (auto level_c : this->components) {
+    auto c_kvs = level_c.get_kvs();
+    all_kvs.insert(all_kvs.end(), c_kvs.begin(), c_kvs.end());
+
+    remove(level_c.filename.c_str());
+  }
+
+  auto new_c = create_component(all_kvs);
+
+  this->components.clear();
+  this->components.push_back(c);
+
+  return pair<bool, component>(true, new_c);
+}
+
 pair<bool, int> level::read(int key) {
   for (auto it = this->components.rbegin(); it != this->components.rend(); ++it) {
     auto c = *it;
@@ -151,7 +191,7 @@ pair<bool, int> level::read(int key) {
   return pair<bool, int>(false, 0);
 }
 
-pair<bool, int> component::read(int key) {
+vector<kv> component::get_kvs() {
   vector<kv> kvs;
   ifstream f(this->filename, ios::binary);
 
@@ -166,6 +206,12 @@ pair<bool, int> component::read(int key) {
 
     kvs.push_back(k);
   } while (true);
+
+  return kvs;
+}
+
+pair<bool, int> component::read(int key) {
+  vector<kv> kvs = this->get_kvs();
 
   int res = binary_search(kvs, key);
 
@@ -239,7 +285,12 @@ int main(int argc, char **argv) {
 vector<int> execute_workload() {
   vector<int> res;
 
+  int i = 0;
   for (auto e : workload) {
+    i++;
+
+    cout << "\r" << i << "/" << workload.size() << flush;
+
     switch (e.type) {
       case read_query: {
         pair<bool, int> r = current_db->read(e.key);
@@ -256,12 +307,24 @@ vector<int> execute_workload() {
         break;
       }
 
+      case delete_query: {
+        current_db->del(e.key);
+        break;
+      }
+
+      case update_query: {
+        current_db->update(e.key, e.value);
+        break;
+      }
+
       default: {
         throw runtime_error("Unsupported workload command");
       }
 
     }
   }
+
+  cout << endl;
 
   return res;
 }
