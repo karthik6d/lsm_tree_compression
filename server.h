@@ -7,27 +7,51 @@
 #include <tuple>
 #include <string>
 
-#define DEFAULT_BUFFER_SIZE 4 //Defines number of ints in the Main Buffer aka Main Memory
+#define DEFAULT_BUFFER_SIZE 4 // Defines number of ints in the Main Buffer aka Main Memory
 #define T 2 // Size ratio between components
 
 
 using namespace std;
 
-//Structure for a component in LSM Tree
+enum query_type { read_query, write_query, update_query, delete_query };
+
+typedef struct workload_entry {
+  query_type type;
+  int key;
+  int value;
+} workload_entry;
+
+typedef struct kv {
+  int key;
+  int value;
+} kv;
+
+// Structure for a component in LSM Tree
 typedef struct component {
-  vector<int>* values;
   string filename;
-  component* next_component;
-  int level;
-  int component_number;
-  int element_count;
+
+  pair<bool, int> read(int key);
 } component;
 
+typedef struct level {
+  vector<component> components;
+  int level_capacity;
+
+  pair<bool, int> read(int key);
+} level;
 
 // Structure for LSM Tree
 typedef struct LSM_Tree {
   string name;
-  component* C0;
+  vector<level> levels;
+  vector<kv> buffer;
+
+  void write(int key, int value);
+  pair<bool, int> read(int key);
+  void del(int key);
+  void update(int key, int value);
+  void insert_component(vector<kv> kvs);
+  void insert_component(component c);
 } LSM_Tree;
 
 //Declarations for server.cpp
@@ -37,4 +61,6 @@ int read(int key);
 void write(int key, int value);
 void del(int key);
 int read_data_to_LSM(component* curr_comp);
-int binarySearch(vector<int> *data, int l, int r, int x);
+int binary_search(vector<kv> data, int x);
+
+vector<int> execute_workload();
