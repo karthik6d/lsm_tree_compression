@@ -1,6 +1,7 @@
 #include "server.h"
 
 #include <assert.h>
+#include <sys/mman.h>
 #include <stdio.h>
 #include <sys/stat.h>
 
@@ -31,16 +32,33 @@ void create(string db_name) {
 
 void load(string path) {
   // Read data from CSV File
-  ifstream myFile(path);
+  ifstream data_file(path, ios::ate);
 
-  string line;
+  int length = data_file.tellg();
+  data_file.close();
+
+  FILE* f = fopen(path.c_str(), "r");
+
+  char *data = (char *)mmap(nullptr, length, PROT_READ, MAP_PRIVATE, fileno(f), 0);
+  fclose(f);
+
+  string data_str(data, data + length);
+
+  assert(munmap(data, length) == 0);
 
   int i = 0;
 
+  int lines = count(data_str.begin(), data_str.end(), '\n');
+
   cout << "reading csv" << endl;
 
-  while (getline(myFile, line)) {
-    cout << "\r" << ++i << flush;
+  istringstream ss(data_str);
+
+  string line;
+
+  while (getline(ss, line)) {
+    cout << "\r" << ++i << "/" << lines << flush;
+
     istringstream ss(line);
 
     string key_s, value_s;
