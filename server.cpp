@@ -1,377 +1,437 @@
-#include <string>
+#include "server.h"
+
+#include <assert.h>
+#include <stdio.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+
+#include <algorithm>
+#include <cmath>
+#include <cstdio>
 #include <fstream>
 #include <iostream>
-#include <vector>
-#include <cstdio>
 #include <sstream>
-#include <cmath>
-#include <sys/stat.h>
+#include <string>
 #include <tuple>
-#include "server.h"
+#include <unordered_map>
+#include <vector>
 
 using namespace std;
 LSM_Tree* current_db;
-vector <component*> components;
-int buffer[DEFAULT_BUFFER_SIZE];
-int buffer_count;
-int component_number;
+int component_count = 0;
 
+vector<workload_entry> workload;
 
-int read_data_to_LSM(component* curr_comp, int valuesin){
-  //Read data from the file
-  FILE *fp;
-
-  // valuesin reports how many values of component already read
-  // check if the whole component been read
-  if(valuesin >= curr_comp->element_count){
-    int breakval = curr_comp-> element_count + 1;
-    return breakval;
-  }
-
-  // open file and set start ptr to values in times 4 bytes per val
-  fp = fopen(curr_comp->filename.c_str(), "r");
-  fseek (fp , 4*valuesin , SEEK_SET);
-
-
-  //struct stat st;
-  //size_t col_size=0;
-  //Get file size of the col_data
-
-  //if (stat(curr_comp->filename.c_str(), &st) == 0){
-    //col_size = st.st_size;
-  //}
-
-
-  //int number_members = (col_size / sizeof(int));
-  int data_ptr[DEFAULT_BUFFER_SIZE];
-
-  // read as many values fit in main memory
-  size_t nmemb = fread(data_ptr, 4, DEFAULT_BUFFER_SIZE, fp);
-  fclose(fp);
-  vector<int> *data = new vector<int>;
-
-  // add to data vector
-  for(int i = 0; i < (int)nmemb; i++){
-    data->push_back(data_ptr[i]);
-  }
-  curr_comp->values = data;
-  int total_elements_read = valuesin + (int)nmemb;
-
-  // return how many elements of component have been read
-  return total_elements_read;
-}
-
-void create(string db_name){
-  LSM_Tree* db = (LSM_Tree*)malloc(sizeof(LSM_Tree));
-  component* first_comp = (component*)malloc(sizeof(component));
-
+void create(string db_name) {
+  LSM_Tree* db = new LSM_Tree();
   db->name = db_name;
-  db->C0 = first_comp;
-
   current_db = db;
-  buffer_count = 0;
-  component_number = 0;
 
+  mkdir("data", 0755);
 }
 
-void load(string path){
-  //Read data from CSV File
-  ifstream myFile(path);
-  //Check to see if the file exists
-  if(!myFile.is_open()) throw std::runtime_error("Could not open file");
+void load(string path) {
+  // Read data from CSV File
+  ifstream data_file(path, ios::ate);
 
-  //Loop through the data
-  int level = 0;
-  int count = 0;
-  int level_count = 0;
-  int intswritten = 0
-  int val;
+  int length = data_file.tellg();
+  data_file.close();
+
+  FILE* f = fopen(path.c_str(), "r");
+
+  char* data =
+      (char*)mmap(nullptr, length, PROT_READ, MAP_PRIVATE, fileno(f), 0);
+  fclose(f);
+
+  string data_str(data, data + length);
+
+  assert(munmap(data, length) == 0);
+
+  int i = 0;
+
+  int lines = count(data_str.begin(), data_str.end(), '\n');
+
+  cout << "reading csv" << endl;
+
+  istringstream ss(data_str);
+
   string line;
-  FILE *fp;
-  int data[DEFAULT_BUFFER_SIZE];
-  int componentsize = 0;
 
-  while(getline(myFile, line)){
-    stringstream ss(line);
+  while (getline(ss, line)) {
+    cout << "\r" << ++i << "/" << lines << flush;
 
+    istringstream ss(line);
 
-    // intswritten keeps track of how many ints written to component
-    // create new component every times its reset to 0
-    if (intswritten == 0){
-      //size of component depends on level, main mem size, and level ratio
-      componentsize = (int)pow(T, level) * DEFAULT_BUFFER_SIZE;
-      string file_name("C");
-      file_name.append(to_string(component_number));
-      file_name.append(".dat");
+    string key_s, value_s;
 
-      component* new_comp = (component*)malloc(sizeof(component));
-      new_comp->values = NULL;
-      new_comp->filename = file_name;
-      new_comp->next_component = NULL;
-      new_comp->level = level;
-      new_comp->component_number = component_number;
+    getline(ss, key_s, ',');
+    getline(ss, value_s, ',');
 
-      //Add new_comp to vector
-      components.push_back(new_comp);
+    current_db->write(stoi(key_s), stoi(value_s));
+  }
 
-      //Increment Variables
-      level_count += 1;
-      component_number += 1;
+  cout << endl;
+}
+
+void LSM_Tree::write(int key, int value) {
+  // if it fits into the top-level buffer, just add it there
+  if (this->buffer.size() < DEFAULT_BUFFER_SIZE) {
+    this->buffer.push_back({key, value});
+    return;
+  }
+
+  // otherwise, we have to create a new component for it
+  component c = create_component(this->buffer);
+  this->insert_component(c);
+  this->buffer.clear();
+  this->buffer.push_back({key, value});
+}
+
+void LSM_Tree::del(int key) { this->write(-key, 0); }
+
+void LSM_Tree::update(int key, int value) { this->write(key, value); }
+
+// comparison function between key value pairs
+int compare_kvs(kv a, kv b) {
+  int a_val = a.key < 0 ? -a.key : a.key;
+  int b_val = b.key < 0 ? -b.key : b.key;
+  return a_val < b_val;
+}
+
+subcomponent create_subcomponent(vector<kv>& kvs, int start, int end) {
+  int min_value = INT32_MAX;
+  int max_value = INT32_MIN;
+
+  for (int j = start; j < end; ++j) {
+    auto pair = kvs[j];
+    int val = pair.key < 0 ? -pair.key : pair.key;
+
+    if (val < min_value) {
+      min_value = val;
     }
 
-    //Decide when to push the read vector to disk, once main mem full
-    if(count == DEFAULT_BUFFER_SIZE){
-      count = 0;
-      //cout << "Writing File" << count << "\n";
-      fp = fopen(file_name.c_str(), "a");
-      fwrite(data, sizeof(int), sizeof(data)/sizeof(int), fp);
-      fclose(fp);
-
-      // check if component has been filled and then sort it
-      if(intswritten == componentsize){
-        new_comp->element_count = intswritten;
-        intswritten == 0;
-        // call sort on that file: sort(file_name)
-
-        //Decide when to increment the level based on ratio T
-        if(level_count == T){
-          level += 1;
-          level_count = 0;
-        }
-      }
-
-
-    }
-
-
-
-    // Extract each integer
-    while(ss >> val){
-        data[count] = val;
-        count += 1;
-        intswritten += 1;
-        // If the next token is a comma, ignore it and move on
-        if(ss.peek() == ',') ss.ignore();
+    if (val > max_value) {
+      max_value = val;
     }
   }
 
-  if(count != 0){
-    new_comp->element_count = intswritten;
-    fp = fopen(file_name.c_str(), "a");
-    fwrite(data, sizeof(int), sizeof(data)/sizeof(int), fp);
-    fclose(fp);
-  }
+  // creating the data file
+  string subcomponent_file_name("data/C");
+  subcomponent_file_name.append(to_string(component_count++));
+  subcomponent_file_name.append(".dat");
+
+  ofstream data_file(subcomponent_file_name, ios::binary);
+
+  // writing the key value pairs to the data file
+  data_file.write((char*)(kvs.data() + start), (end - start) * sizeof(kv));
+  data_file.close();
+
+  return {.filename = subcomponent_file_name,
+          .min_value = min_value,
+          .max_value = max_value};
 }
 
-int read(int key){
-  int neg_found = 0;
-  // iterate through components
-  for(int i = 0; i < components.size();i++){
-    component* new_comp = components[i];
-    int values_in = read_data_to_LSM(new_comp,0);
-    int new_key = key * -1;
+component create_component(vector<kv> kvs) {
+  unordered_map<int, int> m;
 
-    // check if all values in the component have been read, if not, keep
-    // reading component
-    while(values_in <= new_comp->element_count){
-      vector<int> *data = new_comp->values;
-
-      // binary search through mainmemory to find key, if not keep searching
-
-      int value = binarySearch(data,0,data.size();key);
-      int neg_value = binarySearch(data,0,data.size();new_key);
-
-      // if value found (something not -1 returned), return it
-
-      // if ((value != -1)&&(neg_value == -1)){
-      //   return value;
-      // } else if ((value == -1)&&(neg_value != -1)){
-      //   neg_found = 1;
-      //   break;
-      // } else if ((value != -1)&&(neg_value != -1)){
-      //
-      //
-      // }
-
-      if (value != -1){
-        return value;
-      }
-
-      delete new_comp->values;
-      values_in = read_data_to_LSM(new_comp,values_in);
-
-    }
-
-    if(neg_found == 1){
-      break;
-    }
-
+  // iterate over the vector and collect the last updates
+  for (kv k : kvs) {
+    m.erase(-k.key);
+    m[k.key] = k.value;
   }
 
-  return -1;
-}
+  // create the final list of updates
+  vector<kv> final_kvs;
 
-void write(int key, int value){
-  if (buffer_count != DEFAULT_BUFFER_SIZE){
-    buffer[buffer_count] = key;
-    buffer[buffer_count+1] = value;
-    buffer_count = buffer_count + 2;
-  } else {
-    buffer_count = 0;
-
-    string file_name("C");
-    file_name.append(to_string(component_number));
-    file_name.append(".dat");
-
-    component* new_comp = (component*)malloc(sizeof(component));
-    new_comp->values = NULL;
-    new_comp->filename = file_name;
-    new_comp->next_component = NULL;
-    new_comp->level = 0;
-    new_comp->component_number = component_number;
-    component_number = component_number + 1;
-
-    //Add new_comp to vector
-    components.insert(0,new_comp);
-
-    fp = fopen(file_name.c_str(), "a");
-    fwrite(buffer, sizeof(int), sizeof(data)/sizeof(int), fp);
-    fclose(fp);
-
-    vector<string> filename;
-    filename.push_back(file_name);
-    sort(filename);
-
-    int level;
-    int level_counter = 0;
-    for(int i = 0; i < components.size();i++){
-      if(i > 0){
-        if(components[i]->level != components[i-1]->level){
-          level_counter = 1;
-        }
-       else {
-          level_counter = level_counter + 1;
-        }
-      }
-
-      if(level_counter > T) {
-        level_counter = 0;
-        vector<string> merge_filenames;
-
-        string merge_file_name("C");
-        merge_file_name.append(to_string(component_number));
-        merge_file_name.append(".dat");
-
-        component* new_comp2 = (component*)malloc(sizeof(component));
-        new_comp2->values = NULL;
-        new_comp2->filename = merge_file_name;
-        new_comp2->next_component = NULL;
-        new_comp2->level = components[i]->level + 1;
-        new_comp2->component_number = component_number;
-        component_number = component_number + 1;
-        //Add new_comp to vector
-        components.insert(i+1,new_comp2);
-
-        for(int j = 0; j < T; j++){
-          delete components[i - j]->values;
-          string curr_filename = components[i - j]->filename;
-          free(components[i - j]);
-          merge_filenames.push_back(curr_filename);
-        }
-
-        merge_filenames.push_back(merge_file_name);
-        sort(merge_filenames);
-
-        components.erase(i-T+1,i+1);
-
-        i = i - T;
-
-      }
-
-      }
-    }
-
+  for (auto p : m) {
+    final_kvs.push_back({p.first, p.second});
   }
 
+  // sort the list of updates
+  std::sort(final_kvs.begin(), final_kvs.end(), compare_kvs);
 
-void del(int key){
-  new_key = key * -1;
-  write(new_key, 0);
+  // after the sorting and collecting, there should never be a negative key
+  for (kv k : final_kvs) {
+    assert(k.key >= 0);
+  }
+
+  vector<subcomponent> subs;
+
+  for (int i = 0; i < final_kvs.size();) {
+    int start = i;
+    int end = min((size_t)i + DEFAULT_BUFFER_SIZE, final_kvs.size());
+
+    auto sub = create_subcomponent(final_kvs, start, end);
+    subs.push_back(sub);
+
+    i = end;
+  }
+
+  return {.subcomponents = subs};
 }
 
-void update(int key, int update_value){
-  del(key);
-  write(key,update_value);
+void LSM_Tree::insert_component(component c) {
+  int i = 0;
+
+  pair<bool, component> res;
+
+  do {
+    if (i >= this->levels.size()) {
+      this->levels.push_back(level());
+    }
+
+    res = this->levels[i++].insert_component(c);
+
+    c = res.second;
+  } while (res.first);
 }
 
+pair<read_result, int> LSM_Tree::read(int key) {
+  // look through buffer first (go in reverse)
+  for (auto it = this->buffer.rbegin(); it != this->buffer.rend(); ++it) {
+    auto k = *it;
 
-int main(int argc,  char **argv)
-{
-  char input[1024];
-  char* output_str = NULL;
+    if (k.key == key) {
+      return pair<read_result, int>(found, k.value);
+    } else if (k.key == -key) {
+      return pair<read_result, int>(found, 0);
+    }
+  }
 
-  //Parse through workload file
-  while((output_str = fgets(input, 1024, stdin))){
-    string curr = output_str;
-    istringstream ss(curr);
+  // go through each level and try to read
+  for (level l : this->levels) {
+    pair<read_result, int> res = l.read(key);
+
+    if (res.first == found || res.first == deleted) {
+      return res;
+    }
+  }
+
+  return pair<read_result, int>(not_found, 0);
+}
+
+pair<bool, component> level::insert_component(component c) {
+  if (this->components.size() < COMPONENTS_PER_LEVEL) {
+    this->components.push_back(c);
+
+    return pair<bool, component>(false, component());
+  }
+
+  vector<kv> all_kvs;
+
+  for (auto level_c : this->components) {
+    auto c_kvs = level_c.get_kvs();
+    all_kvs.insert(all_kvs.end(), c_kvs.begin(), c_kvs.end());
+
+    for (auto sub : level_c.subcomponents) {
+      remove(sub.filename.c_str());
+    }
+  }
+
+  auto new_c = create_component(all_kvs);
+
+  this->components.clear();
+  this->components.push_back(c);
+
+  return pair<bool, component>(true, new_c);
+}
+
+pair<read_result, int> level::read(int key) {
+  for (auto it = this->components.rbegin(); it != this->components.rend();
+       ++it) {
+    auto c = *it;
+
+    pair<read_result, int> res = c.read(key);
+
+    if (res.first == found || res.first == deleted) {
+      return res;
+    }
+  }
+
+  return pair<read_result, int>(not_found, 0);
+}
+
+vector<kv> component::get_kvs() {
+  vector<kv> res;
+  for (auto sub : this->subcomponents) {
+    vector<kv> s = sub.get_kvs();
+
+    res.insert(res.end(), s.begin(), s.end());
+  }
+
+  return res;
+}
+
+pair<read_result, int> component::read(int key) {
+  for (auto sub : this->subcomponents) {
+    if (key < sub.min_value || key > sub.max_value) {
+      continue;
+    }
+
+    pair<read_result, int> res = sub.read(key);
+
+    if (res.first == found || res.first == deleted) {
+      return res;
+    }
+  }
+
+  return pair<read_result, int>(not_found, 0);
+}
+
+vector<kv> subcomponent::get_kvs() {
+  ifstream f(this->filename, ios::ate | ios::binary);
+
+  // get the length of the file
+  int length = f.tellg();
+
+  // the file must be length 8
+  assert(length % sizeof(kv) == 0);
+
+  // go back to the beginning
+  f.seekg(0, f.beg);
+
+  // prepare the array and read in the data
+  kv buf[length / sizeof(kv)];
+  f.read((char*)buf, length);
+
+  f.close();
+
+  return vector<kv>(buf, buf + length / sizeof(kv));
+}
+
+pair<read_result, int> subcomponent::read(int key) {
+  for (auto k : this->get_kvs()) {
+    if (k.key == key) {
+      return pair<read_result, int>(found, k.value);
+    }
+
+    if (k.key == -key) {
+      return pair<read_result, int>(deleted, 0);
+    }
+  }
+
+  return pair<read_result, int>(not_found, 0);
+}
+
+int main(int argc, char** argv) {
+  if (argc != 2) {
+    std::cout << "Need to pass in query file" << endl;
+    return 1;
+  }
+
+  string output_str;
+  ifstream query_file(argv[1]);
+
+  // Parse through workload file
+  while (getline(query_file, output_str)) {
+    istringstream ss(output_str);
     vector<string> elements;
 
     do {
       string word;
       ss >> word;
       elements.push_back(word);
-
     } while (ss);
 
-    if(elements.at(0).compare("create") == 0){
+    if (elements[0].compare("create") == 0) {
       create(elements.at(1));
-    }
-    else if(elements.at(0).compare("load") == 0){
+    } else if (elements[0].compare("load") == 0) {
       load(elements.at(1));
-    }
-    else if(elements.at(0).compare("read") == 0){
-      read(stoi(elements.at(1)));
-    }
-    else if(elements.at(0).compare("write") == 0){
-      write(stoi(elements.at(1)), stoi(elements.at(2)));
-    }
-    else if(elements.at(0).compare("delete") == 0){
-      del(stoi(elements.at(1)));
-    }
-    else if(elements.at(0).compare("update") == 0){
-      update(stoi(elements.at(1)), stoi(elements.at(2)));
-    }
 
+    } else if (elements[0].compare("read") == 0) {
+      workload.push_back({read_query, stoi(elements[1]), 0});
+
+    } else if (elements[0].compare("write") == 0) {
+      workload.push_back({write_query, stoi(elements[1]), stoi(elements[2])});
+
+    } else if (elements[0].compare("delete") == 0) {
+      workload.push_back({delete_query, stoi(elements[1])});
+
+    } else if (elements[0].compare("update") == 0) {
+      workload.push_back({update_query, stoi(elements[1]), stoi(elements[2])});
+
+    } else {
+      throw runtime_error("Unknown command");
+    }
   }
+
+  cout << "starting workload" << endl;
+
+  auto result = execute_workload();
+
+  cout << "finished workload, writing results to file" << endl;
+
+  ofstream f("hello.res");
+
+  for (int r : result) {
+    f << r << endl;
+  }
+
+  f.close();
 
   return 0;
 }
 
+vector<int> execute_workload() {
+  vector<int> res;
 
-int binarySearch(vector<int>*data, int l, int r, int x)
-{
-    if (r >= l) {
-        int mid = l + (r - l) / 2;
-        if(mid%2 != 0){
-          mid = mid - 1;
+  int i = 0;
+  for (auto e : workload) {
+    i++;
+
+    cout << "\r" << i << "/" << workload.size() << flush;
+
+    switch (e.type) {
+      case read_query: {
+        pair<read_result, int> r = current_db->read(e.key);
+
+        if (r.first == found) {
+          res.push_back(r.second);
         }
 
-        // If the element is present at the middle
-        // itself
-        if (data[mid] == x)
-            return data[mid+1];
+        break;
+      }
 
-        // If element is smaller than mid, then
-        // it can only be present in left subarray
-        if (data[mid] > x)
-            return binarySearch(data, l, mid-1, x);
+      case write_query: {
+        current_db->write(e.key, e.value);
+        break;
+      }
 
-        // Else the element can only be present
-        // in right subarray
-        return binarySearch(data, mid+1, r, x);
+      case delete_query: {
+        current_db->del(e.key);
+        break;
+      }
+
+      case update_query: {
+        current_db->update(e.key, e.value);
+        break;
+      }
+
+      default: { throw runtime_error("Unsupported workload command"); }
     }
+  }
 
-    // We reach here when element is not
-    // present in array
+  cout << endl;
+
+  return res;
+}
+
+int binary_search_helper(vector<kv> data, int l, int r, int x) {
+  if (r <= l) {
     return -1;
+  }
+
+  int m = (r + l) / 2;
+
+  if (data[m].key > x) {
+    return binary_search_helper(data, l, m, x);
+  } else if (data[m].key < x) {
+    return binary_search_helper(data, m + 1, r, x);
+  } else {
+    return m;
+  }
+}
+
+int binary_search(vector<kv> data, int x) {
+  return binary_search_helper(data, 0, data.size(), x);
 }

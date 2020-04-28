@@ -42,9 +42,15 @@ gen
 quicksort
 server
 minheap
+*.dat
+*.res
 
 # keep the tests folder
 !tests/*
 
 # ignore vscode folder
 .vscode
+
+.DS_Store
+
+perf.data*
