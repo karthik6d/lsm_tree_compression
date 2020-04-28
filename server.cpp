@@ -1,8 +1,8 @@
 #include "server.h"
 
 #include <assert.h>
-#include <sys/mman.h>
 #include <stdio.h>
+#include <sys/mman.h>
 #include <sys/stat.h>
 
 #include <algorithm>
@@ -39,7 +39,8 @@ void load(string path) {
 
   FILE* f = fopen(path.c_str(), "r");
 
-  char *data = (char *)mmap(nullptr, length, PROT_READ, MAP_PRIVATE, fileno(f), 0);
+  char* data =
+      (char*)mmap(nullptr, length, PROT_READ, MAP_PRIVATE, fileno(f), 0);
   fclose(f);
 
   string data_str(data, data + length);
