@@ -18,7 +18,6 @@
 using namespace std;
 LSM_Tree* current_db;
 int component_count = 0;
-int skips = 0;
 
 vector<workload_entry> workload;
 
@@ -35,7 +34,13 @@ void load(string path) {
   ifstream myFile(path);
 
   string line;
+
+  int i = 0;
+
+  cout << "reading csv" << endl;
+
   while (getline(myFile, line)) {
+    cout << "\r" << ++i << flush;
     istringstream ss(line);
 
     string key_s, value_s;
@@ -45,6 +50,8 @@ void load(string path) {
 
     current_db->write(stoi(key_s), stoi(value_s));
   }
+
+  cout << endl;
 }
 
 void LSM_Tree::write(int key, int value) {
@@ -66,7 +73,44 @@ void LSM_Tree::del(int key) { this->write(-key, 0); }
 void LSM_Tree::update(int key, int value) { this->write(key, value); }
 
 // comparison function between key value pairs
-int compare_kvs(kv a, kv b) { return a.key < b.key; }
+int compare_kvs(kv a, kv b) {
+  int a_val = a.key < 0 ? -a.key : a.key;
+  int b_val = b.key < 0 ? -b.key : b.key;
+  return a_val < b_val;
+}
+
+subcomponent create_subcomponent(vector<kv>& kvs, int start, int end) {
+  int min_value = INT32_MAX;
+  int max_value = INT32_MIN;
+
+  for (int j = start; j < end; ++j) {
+    auto pair = kvs[j];
+    int val = pair.key < 0 ? -pair.key : pair.key;
+
+    if (val < min_value) {
+      min_value = val;
+    }
+
+    if (val > max_value) {
+      max_value = val;
+    }
+  }
+
+  // creating the data file
+  string subcomponent_file_name("data/C");
+  subcomponent_file_name.append(to_string(component_count++));
+  subcomponent_file_name.append(".dat");
+
+  ofstream data_file(subcomponent_file_name, ios::binary);
+
+  // writing the key value pairs to the data file
+  data_file.write((char*)(kvs.data() + start), (end - start) * sizeof(kv));
+  data_file.close();
+
+  return {.filename = subcomponent_file_name,
+          .min_value = min_value,
+          .max_value = max_value};
+}
 
 component create_component(vector<kv> kvs) {
   unordered_map<int, int> m;
@@ -80,21 +124,8 @@ component create_component(vector<kv> kvs) {
   // create the final list of updates
   vector<kv> final_kvs;
 
-  int min_value = INT32_MAX;
-  int max_value = INT32_MIN;
-
-  for (auto pair : m) {
-    final_kvs.push_back({pair.first, pair.second});
-
-    int val = pair.first < 0 ? -pair.first : pair.first;
-
-    if (val < min_value) {
-      min_value = val;
-    }
-
-    if (val > max_value) {
-      max_value = val;
-    }
+  for (auto p : m) {
+    final_kvs.push_back({p.first, p.second});
   }
 
   // sort the list of updates
@@ -105,21 +136,19 @@ component create_component(vector<kv> kvs) {
     assert(k.key >= 0);
   }
 
-  // creating the data file
-  string component_file_name("data/C");
-  component_file_name.append(to_string(component_count++));
-  component_file_name.append(".dat");
+  vector<subcomponent> subs;
 
-  ofstream data_file(component_file_name, ios::binary);
+  for (int i = 0; i < final_kvs.size();) {
+    int start = i;
+    int end = min((size_t)i + DEFAULT_BUFFER_SIZE, final_kvs.size());
 
-  // writing the key value pairs to the data file
-  data_file.write((char *) final_kvs.data(), final_kvs.size() * 8);
+    auto sub = create_subcomponent(final_kvs, start, end);
+    subs.push_back(sub);
 
-  data_file.close();
+    i = end;
+  }
 
-  return {.filename = component_file_name,
-          .min_value = min_value,
-          .max_value = max_value};
+  return {.subcomponents = subs};
 }
 
 void LSM_Tree::insert_component(component c) {
@@ -175,7 +204,9 @@ pair<bool, component> level::insert_component(component c) {
     auto c_kvs = level_c.get_kvs();
     all_kvs.insert(all_kvs.end(), c_kvs.begin(), c_kvs.end());
 
-    remove(level_c.filename.c_str());
+    for (auto sub : level_c.subcomponents) {
+      remove(sub.filename.c_str());
+    }
   }
 
   auto new_c = create_component(all_kvs);
@@ -191,12 +222,6 @@ pair<read_result, int> level::read(int key) {
        ++it) {
     auto c = *it;
 
-    // skip components based on fence posts
-    if (key < c.min_value || key > c.max_value) {
-      skips++;
-      continue;
-    }
-
     pair<read_result, int> res = c.read(key);
 
     if (res.first == found || res.first == deleted) {
@@ -208,37 +233,62 @@ pair<read_result, int> level::read(int key) {
 }
 
 vector<kv> component::get_kvs() {
+  vector<kv> res;
+  for (auto sub : this->subcomponents) {
+    vector<kv> s = sub.get_kvs();
+
+    res.insert(res.end(), s.begin(), s.end());
+  }
+
+  return res;
+}
+
+pair<read_result, int> component::read(int key) {
+  for (auto sub : this->subcomponents) {
+    if (key < sub.min_value || key > sub.max_value) {
+      continue;
+    }
+
+    pair<read_result, int> res = sub.read(key);
+
+    if (res.first == found || res.first == deleted) {
+      return res;
+    }
+  }
+
+  return pair<read_result, int>(not_found, 0);
+}
+
+vector<kv> subcomponent::get_kvs() {
   ifstream f(this->filename, ios::ate | ios::binary);
 
   // get the length of the file
   int length = f.tellg();
 
   // the file must be length 8
-  assert(length % 8 == 0);
+  assert(length % sizeof(kv) == 0);
 
   // go back to the beginning
   f.seekg(0, f.beg);
 
   // prepare the array and read in the data
-  kv buf[length / 8] ;
-  f.read((char *) buf, length);
+  kv buf[length / sizeof(kv)];
+  f.read((char*)buf, length);
 
-  return vector<kv>(buf, buf + length / 8);
+  f.close();
+
+  return vector<kv>(buf, buf + length / sizeof(kv));
 }
 
-pair<read_result, int> component::read(int key) {
-  vector<kv> kvs = this->get_kvs();
+pair<read_result, int> subcomponent::read(int key) {
+  for (auto k : this->get_kvs()) {
+    if (k.key == key) {
+      return pair<read_result, int>(found, k.value);
+    }
 
-  int res = binary_search(kvs, key);
-
-  if (res != -1) {
-    return pair<read_result, int>(found, kvs[res].value);
-  }
-
-  res = binary_search(kvs, -key);
-
-  if (res != -1) {
-    return pair<read_result, int>(deleted, 0);
+    if (k.key == -key) {
+      return pair<read_result, int>(deleted, 0);
+    }
   }
 
   return pair<read_result, int>(not_found, 0);
@@ -266,7 +316,6 @@ int main(int argc, char** argv) {
 
     if (elements[0].compare("create") == 0) {
       create(elements.at(1));
-
     } else if (elements[0].compare("load") == 0) {
       load(elements.at(1));
 
@@ -291,7 +340,6 @@ int main(int argc, char** argv) {
 
   auto result = execute_workload();
 
-  cout << "skipped components " << skips << endl;
   cout << "finished workload, writing results to file" << endl;
 
   ofstream f("hello.res");
