@@ -138,28 +138,28 @@ void LSM_Tree::insert_component(component c) {
   } while (res.first);
 }
 
-pair<bool, int> LSM_Tree::read(int key) {
+pair<read_result, int> LSM_Tree::read(int key) {
   // look through buffer first (go in reverse)
   for (auto it = this->buffer.rbegin(); it != this->buffer.rend(); ++it) {
     auto k = *it;
 
     if (k.key == key) {
-      return pair<bool, int>(true, k.value);
+      return pair<read_result, int>(found, k.value);
     } else if (k.key == -key) {
-      return pair<bool, int>(false, 0);
+      return pair<read_result, int>(found, 0);
     }
   }
 
   // go through each level and try to read
   for (level l : this->levels) {
-    pair<bool, int> res = l.read(key);
+    pair<read_result, int> res = l.read(key);
 
-    if (res.first) {
+    if (res.first == found || res.first == deleted) {
       return res;
     }
   }
 
-  return pair<bool, int>(false, 0);
+  return pair<read_result, int>(not_found, 0);
 }
 
 pair<bool, component> level::insert_component(component c) {
@@ -186,7 +186,7 @@ pair<bool, component> level::insert_component(component c) {
   return pair<bool, component>(true, new_c);
 }
 
-pair<bool, int> level::read(int key) {
+pair<read_result, int> level::read(int key) {
   for (auto it = this->components.rbegin(); it != this->components.rend();
        ++it) {
     auto c = *it;
@@ -197,14 +197,14 @@ pair<bool, int> level::read(int key) {
       continue;
     }
 
-    pair<bool, int> res = c.read(key);
+    pair<read_result, int> res = c.read(key);
 
-    if (res.first) {
+    if (res.first == found || res.first == deleted) {
       return res;
     }
   }
 
-  return pair<bool, int>(false, 0);
+  return pair<read_result, int>(not_found, 0);
 }
 
 vector<kv> component::get_kvs() {
@@ -226,16 +226,22 @@ vector<kv> component::get_kvs() {
   return vector<kv>(buf, buf + length / 8);
 }
 
-pair<bool, int> component::read(int key) {
+pair<read_result, int> component::read(int key) {
   vector<kv> kvs = this->get_kvs();
 
   int res = binary_search(kvs, key);
 
-  if (res == -1) {
-    return pair<bool, int>(false, 0);
+  if (res != -1) {
+    return pair<read_result, int>(found, kvs[res].value);
   }
 
-  return pair<bool, int>(true, kvs[res].value);
+  res = binary_search(kvs, -key);
+
+  if (res != -1) {
+    return pair<read_result, int>(deleted, 0);
+  }
+
+  return pair<read_result, int>(not_found, 0);
 }
 
 int main(int argc, char** argv) {
@@ -306,15 +312,13 @@ vector<int> execute_workload() {
   for (auto e : workload) {
     i++;
 
-    if (i % 1000 == 0) {
-      cout << "\r" << i << "/" << workload.size() << flush;
-    }
+    cout << "\r" << i << "/" << workload.size() << flush;
 
     switch (e.type) {
       case read_query: {
-        pair<bool, int> r = current_db->read(e.key);
+        pair<read_result, int> r = current_db->read(e.key);
 
-        if (r.first) {
+        if (r.first == found) {
           res.push_back(r.second);
         }
 

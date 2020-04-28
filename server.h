@@ -14,6 +14,7 @@
 using namespace std;
 
 enum query_type { read_query, write_query, update_query, delete_query };
+enum read_result { found, not_found, deleted };
 
 typedef struct workload_entry {
   query_type type;
@@ -32,7 +33,7 @@ typedef struct component {
   int min_value;
   int max_value;
 
-  pair<bool, int> read(int key);
+  pair<read_result, int> read(int key);
   vector<kv> get_kvs();
 } component;
 
@@ -40,7 +41,7 @@ typedef struct level {
   vector<component> components;
   int level_capacity;
 
-  pair<bool, int> read(int key);
+  pair<read_result, int> read(int key);
   pair<bool, component> insert_component(component);
 } level;
 
@@ -51,7 +52,7 @@ typedef struct LSM_Tree {
   vector<kv> buffer;
 
   void write(int key, int value);
-  pair<bool, int> read(int key);
+  pair<read_result, int> read(int key);
   void del(int key);
   void update(int key, int value);
   void insert_component(component c);
