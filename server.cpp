@@ -113,10 +113,7 @@ component create_component(vector<kv> kvs) {
   ofstream data_file(component_file_name, ios::binary);
 
   // writing the key value pairs to the data file
-  for (kv k : final_kvs) {
-    data_file.write((char*)&k.key, sizeof(k.key));
-    data_file.write((char*)&k.value, sizeof(k.value));
-  }
+  data_file.write((char *) final_kvs.data(), final_kvs.size() * 8);
 
   data_file.close();
 
@@ -211,22 +208,22 @@ pair<bool, int> level::read(int key) {
 }
 
 vector<kv> component::get_kvs() {
-  vector<kv> kvs;
-  ifstream f(this->filename, ios::binary);
+  ifstream f(this->filename, ios::ate | ios::binary);
 
-  kv k;
+  // get the length of the file
+  int length = f.tellg();
 
-  do {
-    f.read((char*)&k, sizeof(k));
+  // the file must be length 8
+  assert(length % 8 == 0);
 
-    if (f.eof()) {
-      break;
-    }
+  // go back to the beginning
+  f.seekg(0, f.beg);
 
-    kvs.push_back(k);
-  } while (true);
+  // prepare the array and read in the data
+  kv buf[length / 8] ;
+  f.read((char *) buf, length);
 
-  return kvs;
+  return vector<kv>(buf, buf + length / 8);
 }
 
 pair<bool, int> component::read(int key) {
