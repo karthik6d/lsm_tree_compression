@@ -29,7 +29,7 @@ typedef struct FileNode {
 } FileNode;
 
 
-int *rlestreamdecode(char *filepath, size_t seg_len, EncType etype);
+int *rlestreamdecode(char *filepath, size_t seg_len, size_t *num_res);
 
 
 

@@ -6,7 +6,7 @@
 FileNode *openfiles = NULL;
 
 
-int *rlestreamdecode(char *filepath, size_t seg_len, EncType etype) {
+int *rlestreamdecode(char *filepath, size_t seg_len, size_t *num_res) {
 	printf("rsd check 1\n");
 
 	FileNode *targetfile = openfiles;
@@ -29,7 +29,7 @@ int *rlestreamdecode(char *filepath, size_t seg_len, EncType etype) {
 		targetfile = openfiles = (FileNode *)malloc(sizeof(FileNode));
 		targetfile -> prev = targetfile -> next = NULL;
 		targetfile -> filepath = strdup(filepath);
-		targetfile -> etype = etype;
+		targetfile -> etype = RLE;
 		targetfile -> cursor = (void *)malloc((seg_len + 1)*sizeof(RLEPair));
 
 		printf("rsd check 2.2.1 - %s, %p\n", filepath, infile);
@@ -52,7 +52,7 @@ int *rlestreamdecode(char *filepath, size_t seg_len, EncType etype) {
 		targetfile -> prev = NULL;
 		targetfile -> next = openfiles;
 		targetfile -> filepath = strdup(filepath);
-		targetfile -> etype = etype;
+		targetfile -> etype = RLE;
 		targetfile -> cursor = (void *)malloc((seg_len + 1)*sizeof(RLEPair));
 
 		size_t num_read = fread(((RLEPair *)(targetfile -> cursor)) + 1, sizeof(RLEPair), seg_len, infile);
@@ -110,7 +110,30 @@ int *rlestreamdecode(char *filepath, size_t seg_len, EncType etype) {
 
 	if (write_ctr < seg_len) {
 		toReturn = realloc(toReturn, write_ctr*sizeof(int));
+
+		fclose(targetfile -> fp);
+		free(targetfile -> filepath);
+		free(targetfile -> cursor);
+
+		if (targetfile -> next == NULL && targetfile -> prev == NULL) {
+			openfiles = NULL;
+		}
+		else if (targetfile -> next != NULL && targetfile -> prev == NULL) {
+			openfiles = targetfile -> next;
+			openfiles -> prev = NULL;
+		}
+		else if (targetfile -> next == NULL && targetfile -> prev != NULL) {
+			targetfile -> prev -> next = NULL;
+		}
+		else {
+			targetfile -> next -> prev = targetfile -> prev;
+			targetfile -> prev -> next = targetfile -> next;
+		}
+
+		free(targetfile);
 	}
+
+	*num_res = write_ctr;
 
 	printf("rsd check 7\n");
 
