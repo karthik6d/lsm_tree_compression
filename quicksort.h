@@ -1,3 +1,4 @@
+#include "server.h"
 #include <cstdio>
 #include <fstream>
 #include <iostream>
@@ -5,9 +6,6 @@
 #include <string>
 #include <tuple>
 #include <vector>
-
-#define DEFAULT_BUFFER_SIZE 4  // Defines number of ints in the Main Buffer
-#define T 2                    // Size ratio between components
 
 using namespace std;
 
@@ -17,7 +15,7 @@ void in_memory_sort(FILE* fp, string filename, size_t size);
 void external_sort(FILE* fp, string filename, size_t size);
 void sort(string filename);
 void createInitialRuns(FILE* fp, int run_size, int num_ways, size_t size);
-void mergeFiles(FILE* out, int n, int k);
+void mergeFiles(FILE* out, vector<string> input_files, int k);
 string create_data();
 
 void merge(vector<int>* arr[], int N, int primary_index, int l, int m, int r) {

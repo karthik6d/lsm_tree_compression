@@ -27,6 +27,7 @@ typedef struct kv {
   int value;
 } kv;
 
+// Structure for subcomponent in LSM Tree
 typedef struct subcomponent {
   string filename;
   int min_value;
@@ -44,6 +45,7 @@ typedef struct component {
   vector<kv> get_kvs();
 } component;
 
+//Structure for a level in LSM Tree
 typedef struct level {
   vector<component> components;
   int level_capacity;
@@ -70,5 +72,4 @@ void create(string db_name);
 void load(string path);
 int binary_search(vector<kv> data, int x);
 component create_component(vector<kv> kvs);
-
 vector<int> execute_workload();

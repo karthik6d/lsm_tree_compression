@@ -217,6 +217,7 @@ pair<bool, component> level::insert_component(component c) {
     return pair<bool, component>(false, component());
   }
 
+  // Merge Step
   vector<kv> all_kvs;
 
   for (auto level_c : this->components) {
@@ -229,6 +230,7 @@ pair<bool, component> level::insert_component(component c) {
   }
 
   auto new_c = create_component(all_kvs);
+  // End Merge Step
 
   this->components.clear();
   this->components.push_back(c);

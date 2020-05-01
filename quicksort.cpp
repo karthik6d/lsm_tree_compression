@@ -1,33 +1,23 @@
 #include "quicksort.h"
 
 #include <sys/stat.h>
-
 #include <cstdio>
 #include <iostream>
 #include <vector>
-
 #include "minheap.h"
 
-#define MEM_SIZE 10  // Size of main memory
+int global_counter = 0;  // Size of main memory
 
 using namespace std;
 
 // Merges k sorted files.  Names of files are assumed
 // to be 1, 2, 3, ... k
-void mergeFiles(FILE *out, int n, int k) {
+void mergeFiles(FILE *out, vector<string> input_files, int k) {
   FILE *in[k];
-  for (int i = 0; i < k; i++) {
-    char fileName[2];
 
-    // convert i to string
-    snprintf(fileName, sizeof(fileName), "%d", i);
-
-    // Open output files in read mode.
-    in[i] = fopen(fileName, "r");
+  for (int i = 0; i < input_files.size(); i++) {
+    in[i] = fopen(input_files.at(i).c_str(), "r");
   }
-
-  // FINAL OUTPUT FILE
-  // FILE *out = openFile(output_file, "w");
 
   // Create a min heap with k heap nodes.  Every heap node
   // has first element of scratch output file
@@ -39,10 +29,11 @@ void mergeFiles(FILE *out, int n, int k) {
     int read_data[2];
     if (fread(read_data, sizeof(int), 2, in[i]) < 2) {
       break;
-    } else {
+    }
+    else {
       harr[i].element = read_data[0];
       harr[i].value = read_data[1];
-      harr[i].i = i;  // Index of scrath output file
+      harr[i].i = i;  // Index of scratch output file
     }
   }
 
@@ -66,7 +57,8 @@ void mergeFiles(FILE *out, int n, int k) {
       root.element = INT_MAX;
       root.value = INT_MAX;
       count++;
-    } else {
+    }
+    else {
       root.element = key_value[0];
       root.value = key_value[1];
     }
@@ -76,255 +68,59 @@ void mergeFiles(FILE *out, int n, int k) {
   }
 
   // close input and output files
-  for (int i = 0; i < k; i++) {
+  for (int i = 0; i < input_files.size(); i++) {
     fclose(in[i]);
-    char fileName[2];
-    // convert i to string
-    snprintf(fileName, sizeof(fileName), "%d", i);
-    remove(fileName);
+    remove(input_files.at(i).c_str());
   }
 
   fclose(out);
 }
 
-// Using a merge-sort algorithm, create the initial runs
-// and divide them evenly among the output files
-void createInitialRuns(FILE *fp, int run_size, int num_ways, size_t size) {
-  // output scratch files
-  FILE *out[num_ways];
-  char fileName[2];
-  for (int i = 0; i < num_ways; i++) {
-    // convert i to string
-    snprintf(fileName, sizeof(fileName), "%d", i);
+component sort(vector<component> components){
+    vector<string> names;
 
-    // Open output files in write mode.
-    out[i] = fopen(fileName, "w");
-  }
-
-  // int data[40];
-  // fread(data, sizeof(int), sizeof(data)/sizeof(int), fp);
-  // for(int i = 0; i < 40; i++){
-  //   cout << data[i] << "\t";
-  // }
-  // cout << "\n";
-  // cout << "After\n";
-  // int data;
-  // int val = fscanf(fp, "%d", &data);
-  // cout << "Data: " << data << " FSCANF Val:" << val << "\n";
-
-  // allocate a dynamic array large enough
-  // to accommodate runs of size run_size
-  int arr[run_size];
-
-  bool more_input = true;
-  int next_output_file = 0;
-
-  int i;
-  int num_integers = size / sizeof(int);
-  int write_amount;
-  while (num_integers > 0) {
-    // Determine how much to read
-    if (num_integers >= run_size) {
-      fread(arr, sizeof(int), run_size, fp);
-      num_integers -= run_size;
-      write_amount = run_size;
-    } else {
-      fread(arr, sizeof(int), num_integers, fp);
-      num_integers = 0;
-      write_amount = num_integers;
+    //Add all subcomponents into a filename list
+    for(int i = 0; i < components.size(); i++){
+        component temp = components.at(i);
+        for(int j = 0; j < temp.subcomponents.size(); j++){
+            names.push_back(temp.subcomponents.at(j).filename);
+        }
     }
 
-    // cout << "PRE-SORT RUN: " << next_output_file << "\n";
-    // for(int i = 0; i < 10; i++){
-    //   cout << arr[i] << "\t";
-    // }
-    // cout << "\n";
+    //Merge the subcomponents using external sort
+    string output_file_name = "generic_output.dat";
+    FILE* output = fopen(output_file_name.c_str(), "w+");
+    mergeFiles(output, names, names.size());
 
-    // Break up the vector into two sub vectors
-    vector<int> *keys = new vector<int>;
-    vector<int> *values = new vector<int>;
+    //Create the new component
+    component c;
+    vector<subcomponent> subs;
+    struct stat st;
+    size_t size = 0;
+    // Get file size
+    if (stat(output_file_name.c_str(), &st) == 0) {
+        size = st.st_size;
+    }
+    size_t counter = 0;
 
-    for (int i = 0; i < run_size; i++) {
-      if (i % 2 == 0) {
-        keys->push_back(arr[i]);
-      } else {
-        values->push_back(arr[i]);
-      }
+    while(counter < size){
+        int length = size - counter > DEFAULT_BUFFER_SIZE ? DEFAULT_BUFFER_SIZE/4 : (size-counter)/4;
+        int buffer[length];
+
+        fread(buffer, sizeof(int), length, output);
+        int min = buffer[0];
+        int max = buffer[length-1];
+
+        subcomponent temp;
+        temp.filename = "C" + to_string(global_counter);
+        temp.min_value = min;
+        temp.max_value = max;
+        subs.push_back(temp);
+
+        counter += DEFAULT_BUFFER_SIZE;
     }
 
-    vector<int> *sort_arr[2] = {keys, values};
-    // for(int i = 0; i < keys->size(); i++){
-    //   cout << "Pre-Keys: " << keys->at(i) << "\t";
-    // }
-    // cout << "\n";
-    //
-    // sort array using merge sort
-    mergeSort(sort_arr, 2, 0, 0, (run_size / 2) - 1);
+    c.subcomponents = subs;
 
-    // for(int i = 0; i < keys->size(); i++){
-    //   cout << "Post-Keys: " << keys->at(i) << "\t";
-    // }
-    // cout << "\n";
-
-    // Put the vectors pack into arr
-    for (int i = 0; i < run_size; i++) {
-      if (i % 2 == 0) {
-        arr[i] = keys->at(i / 2);
-      } else {
-        arr[i] = values->at(i / 2);
-      }
-    }
-
-    // //Print
-    // cout << "POST-SORT RUN: " << next_output_file << "\n";
-    // for(int i = 0; i < 10; i++){
-    //   cout << arr[i] << "\t";
-    // }
-    // cout << "\n";
-
-    // Write the data to the file
-    fwrite(arr, sizeof(int), write_amount, out[next_output_file]);
-
-    // Create run for next file
-    next_output_file++;
-  }
-
-  // close input and output files
-  for (int i = 0; i < num_ways; i++) fclose(out[i]);
-
-  fclose(fp);
-}
-
-void in_memory_sort(FILE *fp, string filename, size_t size) {
-  int number_members = (size / sizeof(int));
-  int data_ptr[number_members];
-  size_t nmemb = fread(data_ptr, 4, number_members, fp);
-  fclose(fp);
-
-  vector<int> *keys = new vector<int>;
-  vector<int> *values = new vector<int>;
-
-  // Allocate two vectors both the keys and values
-  for (int i = 0; i < number_members; i++) {
-    if (i % 2 == 0) {
-      keys->push_back(data_ptr[i]);
-    } else {
-      values->push_back(data_ptr[i]);
-    }
-  }
-
-  vector<int> *arr[2] = {keys, values};
-  mergeSort(arr, 2, 0, 0, (number_members / 2) - 1);
-
-  // Write everything to the disk file
-  for (int i = 0; i < number_members; i++) {
-    if (i % 2 == 0) {
-      data_ptr[i] = keys->at(i / 2);
-    } else {
-      data_ptr[i] = values->at(i / 2);
-    }
-  }
-
-  FILE *output_fp = fopen(filename.c_str(), "w");
-  fwrite(data_ptr, sizeof(int), sizeof(data_ptr) / sizeof(int), output_fp);
-  fclose(output_fp);
-}
-
-void external_sort(FILE *fp, string filename, size_t size) {
-  int num_ways = (size / ((int)MEM_SIZE * (int)sizeof(int)));
-  int run_size = (int)MEM_SIZE;
-
-  createInitialRuns(fp, run_size, num_ways, size);
-  fp = fopen(filename.c_str(), "w");
-  mergeFiles(fp, run_size, num_ways);
-}
-
-void sort(string filename) {
-  FILE *fp;
-  fp = fopen(filename.c_str(), "r");
-  struct stat st;
-  size_t col_size = 0;
-  // Get file size of the col_data
-  if (stat(filename.c_str(), &st) == 0) {
-    col_size = st.st_size;
-  }
-
-  cout << "COL SIZE: " << col_size << "\n";
-  string output_file;
-  if (col_size / sizeof(int) <= MEM_SIZE) {
-    // TODO: call in memory sort
-    cout << "IN MEMORY SORT\n";
-    in_memory_sort(fp, filename, col_size);
-  } else {
-    // TODO: call external sort
-    cout << "EXTERNAL SORT\n";
-    external_sort(fp, filename, col_size);
-  }
-}
-
-string create_data() {
-  // Use this to test the above functions
-  // Create simple key value as follows:
-  // 10:0, 9:1, 8:2, 7:3, 6:4, 5:5, 4:6, 3:7, 2:8, 1:9
-  vector<int> *keys = new vector<int>;
-  vector<int> *values = new vector<int>;
-
-  for (int i = 0; i < 20; i++) {
-    keys->push_back(20 - i);
-    values->push_back(i);
-  }
-
-  int final_data[40];
-
-  for (int i = 0; i < 40; i++) {
-    if (i % 2 == 0) {
-      final_data[i] = keys->at(i / 2);
-    } else {
-      final_data[i] = values->at(i / 2);
-    }
-  }
-
-  string output_file = "output_file.txt";
-  FILE *output_fp = fopen(output_file.c_str(), "w");
-  fwrite(final_data, sizeof(int), sizeof(final_data) / sizeof(int), output_fp);
-  fclose(output_fp);
-
-  return output_file;
-}
-
-int main() {
-  string output_file = create_data();
-
-  sort(output_file);
-  FILE *fp;
-  int sorted_data[10];
-
-  // for(int i = 0; i < 4; i++){
-  //   char fileName[2];
-  //   snprintf(fileName, sizeof(fileName), "%d", i);
-  //   fp = fopen(fileName, "r");
-  //   fread(sorted_data, sizeof(int), sizeof(sorted_data)/sizeof(int), fp);
-  //   fclose(fp);
-  //
-  //   cout << "MERGE FILE: " << i << "\n";
-  //   for(int j = 0; j < 10; j++){
-  //     cout << sorted_data[j] << "\t";
-  //   }
-  //   cout << "\n";
-  // }
-  // fclose(fp);
-
-  int data[40];
-  fp = fopen(output_file.c_str(), "r");
-  fread(data, sizeof(int), sizeof(data) / sizeof(int), fp);
-  fclose(fp);
-
-  // See if it is correct
-  cout << "After Merging: "
-       << "\n";
-  for (int i = 0; i < 40; i++) {
-    cout << data[i] << "\n";
-  }
-
-  return 0;
+    return c;
 }
