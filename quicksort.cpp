@@ -1,5 +1,4 @@
 #include "quicksort.h"
-
 #include <sys/stat.h>
 #include <cstdio>
 #include <iostream>

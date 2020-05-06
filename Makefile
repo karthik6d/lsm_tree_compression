@@ -18,7 +18,7 @@ gen: generator/generator.go
 	cd generator && go build . && mv generator ../gen
 
 server: server.cpp server.h
-	g++ -o server $(CPPFLAGS) server.cpp
+	g++ -o server $(CPPFLAGS) server.cpp quicksort.cpp
 
 format:
 	clang-format -i *.cpp *.h

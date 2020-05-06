@@ -1,4 +1,6 @@
 #include <iostream>
+#include "minheap.h"
+
 using namespace std;
 
 // A recursive method to heapify a subtree with root
