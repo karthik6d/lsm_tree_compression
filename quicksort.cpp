@@ -81,15 +81,20 @@ component sort(vector<component> components){
     //Add all subcomponents into a filename list
     for(int i = 0; i < components.size(); i++){
         component temp = components.at(i);
+        //cout << "Problem Here\n";
         for(int j = 0; j < temp.subcomponents.size(); j++){
             names.push_back(temp.subcomponents.at(j).filename);
+            cout << temp.subcomponents.at(j).filename << "\n";
         }
     }
 
     //Merge the subcomponents using external sort
     string output_file_name = "generic_output.dat";
-    FILE* output = fopen(output_file_name.c_str(), "w+");
+    FILE* output = fopen(output_file_name.c_str(), "w");
     mergeFiles(output, names, names.size());
+    fclose(output);
+
+    output = fopen(output_file_name.c_str(), "r");
 
     //Create the new component
     component c;
@@ -100,23 +105,34 @@ component sort(vector<component> components){
     if (stat(output_file_name.c_str(), &st) == 0) {
         size = st.st_size;
     }
+
+
     size_t counter = 0;
+    int name_counter = 0;
+    //Number of ints in the output file
+    size /= 4;
 
     while(counter < size){
-        int length = size - counter > DEFAULT_BUFFER_SIZE ? DEFAULT_BUFFER_SIZE/4 : (size-counter)/4;
+        int length = size - counter > (DEFAULT_BUFFER_SIZE*2) ? (DEFAULT_BUFFER_SIZE*2) : (size-counter);
         int buffer[length];
 
         fread(buffer, sizeof(int), length, output);
         int min = buffer[0];
-        int max = buffer[length-1];
+        int max = buffer[length-2];
+
+        FILE* new_sub = fopen(names.at(name_counter).c_str(), "w");
+        fwrite(buffer, sizeof(int), length, new_sub);
+        fclose(new_sub);
+
 
         subcomponent temp;
-        temp.filename = "C" + to_string(global_counter);
+        temp.filename = names.at(name_counter);
         temp.min_value = min;
         temp.max_value = max;
         subs.push_back(temp);
 
-        counter += DEFAULT_BUFFER_SIZE;
+        counter += (DEFAULT_BUFFER_SIZE*2);
+        name_counter++;
     }
 
     c.subcomponents = subs;
