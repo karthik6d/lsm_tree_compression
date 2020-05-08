@@ -5,8 +5,6 @@
 #include <vector>
 #include "minheap.h"
 
-int global_counter = 0;  // Size of main memory
-
 using namespace std;
 
 // Merges k sorted files.  Names of files are assumed
@@ -15,6 +13,11 @@ void mergeFiles(FILE *out, vector<string> input_files, int k) {
   FILE *in[k];
 
   for (int i = 0; i < input_files.size(); i++) {
+      struct stat st;
+      // Get file size
+      if (stat(input_files.at(i).c_str(), &st) == 0) {
+          cout << "SIZE: " << st.st_size << "\n";
+      }
     in[i] = fopen(input_files.at(i).c_str(), "r");
   }
 
@@ -38,41 +41,92 @@ void mergeFiles(FILE *out, vector<string> input_files, int k) {
 
   MinHeap hp(harr, k);  // Create the heap
 
-  int count = 0;
+//  int count = 0;
+//  int index = 0;
+//  int key_value[DEFAULT_BUFFER_SIZE*2];
 
   // Now one by one get the minimum element from min
   // heap and replace it with next element.
   // run till all filled input files reach EOF
-  while (count != i) {
-    // Get the minimum element and store it in output file
-    MinHeapNode root = hp.getMin();
-    int key_value[2] = {root.element, root.value};
-    fwrite(key_value, sizeof(int), 2, out);
+//  while (count != k) {
+//    // Get the minimum element and store it in output file
+//    MinHeapNode root = hp.getMin();
+//    key_value[index] = root.element;
+//    key_value[index+1] = root.value;
+//
+//    cout << index << " " << root.i << "\n";
+//    //Minimize Writes
+//    if(index < (DEFAULT_BUFFER_SIZE*2-2)){
+//        index += 2;
+//    }
+//    else{
+//        fwrite(key_value, sizeof(int), index, out);
+//        index = 0;
+//    }
+//
+//    int reads[2];
+//    // Find the next element that will replace current
+//    // root of heap. The next element belongs to same
+//    // input file as the current min element.
+//    if (fread(reads, sizeof(int), 2, in[root.i]) < 2) {
+//      root.element = INT_MAX;
+//      root.value = INT_MAX;
+//      count++;
+//    }
+//    else {
+//      root.element = reads[0];
+//      root.value = reads[1];
+//    }
+//
+//    // Replace root with next element of input file
+//    hp.replaceMin(root);
+//  }
+    int count = 0;
+    int index = 0;
+    int arr[DEFAULT_BUFFER_SIZE*2];
 
-    // Find the next element that will replace current
-    // root of heap. The next element belongs to same
-    // input file as the current min element.
-    if (fread(key_value, sizeof(int), 2, in[root.i]) < 2) {
-      root.element = INT_MAX;
-      root.value = INT_MAX;
-      count++;
-    }
-    else {
-      root.element = key_value[0];
-      root.value = key_value[1];
-    }
+    // Now one by one get the minimum element from min
+    // heap and replace it with next element.
+    // run till all filled input files reach EOF
+    while (count != i) {
+        // Get the minimum element and store it in output file
+        MinHeapNode root = hp.getMin();
 
-    // Replace root with next element of input file
-    hp.replaceMin(root);
-  }
+        arr[index] = root.element;
+        arr[index+1] = root.value;
+        index += 2;
+
+        int key_value[2] = {0, 0};
+        //fwrite(key_value, sizeof(int), 2, out);
+
+        if(index == DEFAULT_BUFFER_SIZE*2){
+            fwrite(arr, sizeof(int), index, out);
+            index = 0;
+        }
+
+
+        // Find the next element that will replace current
+        // root of heap. The next element belongs to same
+        // input file as the current min element.
+        if (fread(key_value, sizeof(int), 2, in[root.i]) < 2) {
+            root.element = INT_MAX;
+            root.value = INT_MAX;
+            count++;
+        }
+        else {
+            root.element = key_value[0];
+            root.value = key_value[1];
+        }
+
+        // Replace root with next element of input file
+        hp.replaceMin(root);
+    }
 
   // close input and output files
   for (int i = 0; i < input_files.size(); i++) {
     fclose(in[i]);
     remove(input_files.at(i).c_str());
   }
-
-  fclose(out);
 }
 
 component sort(vector<component> components){
@@ -106,6 +160,13 @@ component sort(vector<component> components){
         size = st.st_size;
     }
 
+//    int arr[size/4];
+//    fread(arr, sizeof(int), size/4, output);
+//    for(int i = 0; i < size/4; i++){
+//        cout << arr[i] << "\t";
+//    }
+//    cout << "\n";
+
 
     size_t counter = 0;
     int name_counter = 0;
@@ -135,6 +196,7 @@ component sort(vector<component> components){
         name_counter++;
     }
 
+    fclose(output);
     c.subcomponents = subs;
 
     return c;
