@@ -5,20 +5,24 @@
 #include <vector>
 #include "minheap.h"
 
+int global_counter = 0;
+string prefix = "data/new_C";
 using namespace std;
 
 // Merges k sorted files.  Names of files are assumed
 // to be 1, 2, 3, ... k
-void mergeFiles(FILE *out, vector<string> input_files, int k) {
+vector<subcomponent> mergeFiles(vector<string> input_files, int k) {
   FILE *in[k];
+  FILE *output_files[k];
+  vector<string> output_file_names;
+  vector<kv> min_max;
 
   for (int i = 0; i < input_files.size(); i++) {
-      struct stat st;
-      // Get file size
-      if (stat(input_files.at(i).c_str(), &st) == 0) {
-          cout << "SIZE: " << st.st_size << "\n";
-      }
     in[i] = fopen(input_files.at(i).c_str(), "r");
+    string new_file = prefix + to_string(global_counter) + ".dat";
+    output_files[i] = fopen(new_file.c_str(), "w");
+    output_file_names.push_back(new_file);
+    global_counter++;
   }
 
   // Create a min heap with k heap nodes.  Every heap node
@@ -41,48 +45,9 @@ void mergeFiles(FILE *out, vector<string> input_files, int k) {
 
   MinHeap hp(harr, k);  // Create the heap
 
-//  int count = 0;
-//  int index = 0;
-//  int key_value[DEFAULT_BUFFER_SIZE*2];
-
-  // Now one by one get the minimum element from min
-  // heap and replace it with next element.
-  // run till all filled input files reach EOF
-//  while (count != k) {
-//    // Get the minimum element and store it in output file
-//    MinHeapNode root = hp.getMin();
-//    key_value[index] = root.element;
-//    key_value[index+1] = root.value;
-//
-//    cout << index << " " << root.i << "\n";
-//    //Minimize Writes
-//    if(index < (DEFAULT_BUFFER_SIZE*2-2)){
-//        index += 2;
-//    }
-//    else{
-//        fwrite(key_value, sizeof(int), index, out);
-//        index = 0;
-//    }
-//
-//    int reads[2];
-//    // Find the next element that will replace current
-//    // root of heap. The next element belongs to same
-//    // input file as the current min element.
-//    if (fread(reads, sizeof(int), 2, in[root.i]) < 2) {
-//      root.element = INT_MAX;
-//      root.value = INT_MAX;
-//      count++;
-//    }
-//    else {
-//      root.element = reads[0];
-//      root.value = reads[1];
-//    }
-//
-//    // Replace root with next element of input file
-//    hp.replaceMin(root);
-//  }
     int count = 0;
     int index = 0;
+    int output_counter = 0;
     int arr[DEFAULT_BUFFER_SIZE*2];
 
     // Now one by one get the minimum element from min
@@ -97,11 +62,15 @@ void mergeFiles(FILE *out, vector<string> input_files, int k) {
         index += 2;
 
         int key_value[2] = {0, 0};
-        //fwrite(key_value, sizeof(int), 2, out);
 
         if(index == DEFAULT_BUFFER_SIZE*2){
-            fwrite(arr, sizeof(int), index, out);
+            fwrite(arr, sizeof(int), index, output_files[output_counter]);
+            kv pair;
+            pair.key = arr[0];
+            pair.value = arr[(DEFAULT_BUFFER_SIZE*2) - 2];
+            min_max.push_back(pair);
             index = 0;
+            output_counter++;
         }
 
 
@@ -125,8 +94,21 @@ void mergeFiles(FILE *out, vector<string> input_files, int k) {
   // close input and output files
   for (int i = 0; i < input_files.size(); i++) {
     fclose(in[i]);
+    fclose(output_files[i]);
     remove(input_files.at(i).c_str());
   }
+
+  //Create the new subcomponents
+  vector<subcomponent> final_subcomponents;
+  for(int i = 0; i < output_file_names.size(); i++){
+      subcomponent temp;
+      temp.filename = output_file_names.at(i);
+      temp.min_value = min_max.at(i).key;
+      temp.max_value = min_max.at(i).value;
+      final_subcomponents.push_back(temp);
+  }
+
+  return final_subcomponents;
 }
 
 component sort(vector<component> components){
@@ -135,7 +117,6 @@ component sort(vector<component> components){
     //Add all subcomponents into a filename list
     for(int i = 0; i < components.size(); i++){
         component temp = components.at(i);
-        //cout << "Problem Here\n";
         for(int j = 0; j < temp.subcomponents.size(); j++){
             names.push_back(temp.subcomponents.at(j).filename);
             cout << temp.subcomponents.at(j).filename << "\n";
@@ -143,61 +124,11 @@ component sort(vector<component> components){
     }
 
     //Merge the subcomponents using external sort
-    string output_file_name = "generic_output.dat";
-    FILE* output = fopen(output_file_name.c_str(), "w");
-    mergeFiles(output, names, names.size());
-    fclose(output);
-
-    output = fopen(output_file_name.c_str(), "r");
+    vector<subcomponent> output_files = mergeFiles(names, names.size());
 
     //Create the new component
     component c;
-    vector<subcomponent> subs;
-    struct stat st;
-    size_t size = 0;
-    // Get file size
-    if (stat(output_file_name.c_str(), &st) == 0) {
-        size = st.st_size;
-    }
-
-//    int arr[size/4];
-//    fread(arr, sizeof(int), size/4, output);
-//    for(int i = 0; i < size/4; i++){
-//        cout << arr[i] << "\t";
-//    }
-//    cout << "\n";
-
-
-    size_t counter = 0;
-    int name_counter = 0;
-    //Number of ints in the output file
-    size /= 4;
-
-    while(counter < size){
-        int length = size - counter > (DEFAULT_BUFFER_SIZE*2) ? (DEFAULT_BUFFER_SIZE*2) : (size-counter);
-        int buffer[length];
-
-        fread(buffer, sizeof(int), length, output);
-        int min = buffer[0];
-        int max = buffer[length-2];
-
-        FILE* new_sub = fopen(names.at(name_counter).c_str(), "w");
-        fwrite(buffer, sizeof(int), length, new_sub);
-        fclose(new_sub);
-
-
-        subcomponent temp;
-        temp.filename = names.at(name_counter);
-        temp.min_value = min;
-        temp.max_value = max;
-        subs.push_back(temp);
-
-        counter += (DEFAULT_BUFFER_SIZE*2);
-        name_counter++;
-    }
-
-    fclose(output);
-    c.subcomponents = subs;
+    c.subcomponents = output_files;
 
     return c;
 }

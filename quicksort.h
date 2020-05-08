@@ -10,4 +10,4 @@
 using namespace std;
 
 component sort(vector<component> components);
-void mergeFiles(FILE* out, vector<string> input_files, int k);
+vector<subcomponent> mergeFiles(vector<string> input_files, int k);
