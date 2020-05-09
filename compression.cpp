@@ -279,7 +279,14 @@ int *rlestreamdecode(const char *filepath, size_t seg_len, size_t *num_res) {
         i += (seg_len - read_ctr)*(read_ctr == cursor_len);
     }
 
-    printf("rsd check 6\n");
+    printf("HELLO");
+    printf("rsd check 6 fuck\n");
+    printf("WHAT");
+
+    for(size_t i = 0; i < seg_len; i++){
+        printf("BEFORE");
+        //printf("Hello: %d\t", toReturn[i]);
+    }
 
     memmove(((RLEPair *)(targetfile -> cursor)) + 1, ((RLEPair *)(targetfile -> cursor)) + 1 + read_ctr,
             sizeof(RLEPair)*(cursor_len - read_ctr));

@@ -308,7 +308,7 @@ vector<kv> subcomponent::get_kvs() {
 //
 //  f.close();
     size_t* number_read = NULL;
-    kv* buf = (kv*) rlestreamdecode(this->compressed_filename.c_str(), DEFAULT_BUFFER_SIZE*2, number_read);
+    kv* buf = (kv*) rlestreamdecode(this->compressed_filename.c_str(), length/4, number_read);
 
   return vector<kv>(buf, buf + length / sizeof(kv));
 }
