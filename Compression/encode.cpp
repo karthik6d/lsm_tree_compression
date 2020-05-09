@@ -183,7 +183,7 @@ Status rle_delta_file_encode(char *filepath) {
 	return OK;
 }
 
-int *rlestreamdecode(char *filepath, size_t seg_len, size_t *num_res) {
+int *rle_delta_stream_decode(char *filepath, size_t seg_len, size_t *num_res) {
 	printf("rsd check 1\n");
 
 	FileNode *targetfile = openfiles;
