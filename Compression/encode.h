@@ -3,6 +3,13 @@
 #include <string.h>
 
 
+typedef enum Status {
+	OK,
+	ERR_FOPEN,
+	ERR_FREAD,
+	ERR_FWRITE,
+} Status;
+
 typedef enum EncType {
 	RLE,
 	DELTA,
@@ -28,8 +35,10 @@ typedef struct FileNode {
 	struct FileNode *next;
 } FileNode;
 
-
+Status rle_delta_file_encode(char *filepath);
 int *rlestreamdecode(char *filepath, size_t seg_len, size_t *num_res);
+
+// int *deltastreamdecode(char *filepath, size_t seg_len, size_t *num_res);
 
 
 
