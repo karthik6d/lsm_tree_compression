@@ -13,7 +13,7 @@ using namespace std;
 
 // Merges k sorted files.  Names of files are assumed
 // to be 1, 2, 3, ... k
-vector<subcomponent> mergeFiles(vector<string> input_files, int k) {
+vector<subcomponent> mergeFiles(vector<string> input_files, vector<string> compressed_files, int k) {
   FILE *in[k];
   FILE *output_files[k];
   vector<string> output_file_names;
@@ -102,6 +102,7 @@ vector<subcomponent> mergeFiles(vector<string> input_files, int k) {
     fclose(in[i]);
     //fclose(output_files[i]);
     remove(input_files.at(i).c_str());
+    remove(compressed_files.at(i).c_str());
   }
 
   //Create the new subcomponents
@@ -120,17 +121,19 @@ vector<subcomponent> mergeFiles(vector<string> input_files, int k) {
 
 component sort(vector<component> components){
     vector<string> names;
+    vector<string> compressed;
 
     //Add all subcomponents into a filename list
     for(int i = 0; i < components.size(); i++){
         component temp = components.at(i);
         for(int j = 0; j < temp.subcomponents.size(); j++){
             names.push_back(temp.subcomponents.at(j).filename);
+            compressed.push_back(temp.subcomponents.at(j).compressed_filename);
         }
     }
 
     //Merge the subcomponents using external sort
-    vector<subcomponent> output_files = mergeFiles(names, names.size());
+    vector<subcomponent> output_files = mergeFiles(names, compressed, names.size());
 
     //Create the new component
     component c;

@@ -184,7 +184,7 @@ char* rle_delta_file_encode(const char *filepath) {
     return new_filename;
 }
 
-int *rlestreamdecode(char *filepath, size_t seg_len, size_t *num_res) {
+int *rlestreamdecode(const char *filepath, size_t seg_len, size_t *num_res) {
     printf("rsd check 1\n");
 
     FileNode *targetfile = openfiles;

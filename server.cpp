@@ -303,10 +303,12 @@ vector<kv> subcomponent::get_kvs() {
   f.seekg(0, f.beg);
 
   // prepare the array and read in the data
-  kv buf[length / sizeof(kv)];
-  f.read((char*)buf, length);
-
-  f.close();
+  //kv buf[length / sizeof(kv)];
+//  f.read((char*)buf, length);
+//
+//  f.close();
+    size_t* number_read = NULL;
+    kv* buf = (kv*) rlestreamdecode(this->compressed_filename.c_str(), DEFAULT_BUFFER_SIZE*2, number_read);
 
   return vector<kv>(buf, buf + length / sizeof(kv));
 }
