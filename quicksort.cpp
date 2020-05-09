@@ -68,7 +68,8 @@ vector<subcomponent> mergeFiles(vector<string> input_files, int k) {
 
         if(index == DEFAULT_BUFFER_SIZE*2){
             fwrite(arr, sizeof(int), index, output_files[output_counter]);
-            string compressed_file = string(rle_delta_file_encode(compressed_file_names.at(output_counter).c_str()));
+            fclose(output_files[output_counter]);
+            string compressed_file = string(rle_delta_file_encode(output_file_names.at(output_counter).c_str()));
             compressed_file_names.push_back(compressed_file);
             kv pair;
             pair.key = arr[0];
@@ -99,7 +100,7 @@ vector<subcomponent> mergeFiles(vector<string> input_files, int k) {
   // close input and output files
   for (int i = 0; i < input_files.size(); i++) {
     fclose(in[i]);
-    fclose(output_files[i]);
+    //fclose(output_files[i]);
     remove(input_files.at(i).c_str());
   }
 

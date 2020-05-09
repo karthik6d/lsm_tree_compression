@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include "compression.h"
+#include <string>
 
 
 FileNode *openfiles = NULL;
@@ -10,6 +11,7 @@ FileNode *openfiles = NULL;
 
 char* rle_delta_file_encode(const char *filepath) {
     // printf("rdfe check 1\n");
+    printf("FILEPATH: %s", filepath);
 
     FILE *infile = fopen(filepath, "r");
 
@@ -46,14 +48,23 @@ char* rle_delta_file_encode(const char *filepath) {
 
     char *path_copy_base = strdup(filepath);
     char *path_copy = path_copy_base;
-    // strsep(&path_copy, "./raw/");
 
-    size_t filename_len = strlen(path_copy);
-    char *new_filename = (char *)malloc(8 + filename_len);
-    sprintf(new_filename, "enc/%s", path_copy + 7);
-    new_filename[strlen(new_filename) - 3] = 'e';
-    new_filename[strlen(new_filename) - 2] = 'n';
-    new_filename[strlen(new_filename) - 1] = 'c';
+    std::string new_path = "enc/";
+    for(int i = 5; i < sizeof(filepath); i++){
+        new_path.push_back(filepath[i]);
+    }
+    new_path += "enc";
+
+    char *new_filename = (char *)malloc(new_path.length());
+    strcpy(new_filename, new_path.c_str());
+
+//    size_t filename_len = strlen(path_copy);
+//    char *new_filename = (char *)malloc(8 + filename_len);
+//    sprintf(new_filename, "enc/%s", path_copy + 7);
+//    printf("FILENAME %s\n", new_filename);
+//    new_filename[strlen(new_filename) - 3] = 'e';
+//    new_filename[strlen(new_filename) - 2] = 'n';
+//    new_filename[strlen(new_filename) - 1] = 'c';
     // new_filename[7 + filename_len] = '\0';
 
     printf("new_filename = %s\n", new_filename);
