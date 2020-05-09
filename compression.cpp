@@ -11,7 +11,7 @@ FileNode *openfiles = NULL;
 
 char* rle_delta_file_encode(const char *filepath) {
     // printf("rdfe check 1\n");
-    printf("FILEPATH: %s", filepath);
+    //printf("FILEPATH: %s\n", filepath);
 
     FILE *infile = fopen(filepath, "r");
 
@@ -46,11 +46,12 @@ char* rle_delta_file_encode(const char *filepath) {
         return "OK";
     }
 
-    char *path_copy_base = strdup(filepath);
-    char *path_copy = path_copy_base;
+//    char *path_copy_base = strdup(filepath);
+//    char *path_copy = path_copy_base;
 
     std::string new_path = "enc/";
-    for(int i = 5; i < sizeof(filepath); i++){
+    //printf("SIZE OF FILEPATH: %d\n", sizeof(filepath));
+    for(int i = 5; i < strlen(filepath)-3; i++){
         new_path.push_back(filepath[i]);
     }
     new_path += "enc";
@@ -69,7 +70,7 @@ char* rle_delta_file_encode(const char *filepath) {
 
     printf("new_filename = %s\n", new_filename);
 
-    free(path_copy_base);
+    //free(path_copy_base);
 
     FILE *outfile = fopen(new_filename, "w");
     if (outfile == NULL) {
