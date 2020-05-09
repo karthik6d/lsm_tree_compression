@@ -7,9 +7,9 @@
 #include <vector>
 
 #define DEFAULT_BUFFER_SIZE \
-  4096  // Defines number of ints in the Main Buffer aka Main Memory
+  8  // Defines number of ints in the Main Buffer aka Main Memory
 // #define T 2 // Size ratio between components
-#define COMPONENTS_PER_LEVEL 4
+#define COMPONENTS_PER_LEVEL 2
 
 using namespace std;
 
@@ -30,6 +30,7 @@ typedef struct kv {
 // Structure for subcomponent in LSM Tree
 typedef struct subcomponent {
   string filename;
+  string compressed_filename;
   int min_value;
   int max_value;
 

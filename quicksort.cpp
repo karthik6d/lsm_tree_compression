@@ -1,9 +1,11 @@
 #include "quicksort.h"
+#include "compression.h"
+#include "minheap.h"
+
 #include <sys/stat.h>
 #include <cstdio>
 #include <iostream>
 #include <vector>
-#include "minheap.h"
 
 int global_counter = 0;
 string prefix = "data/new_C";
@@ -15,6 +17,7 @@ vector<subcomponent> mergeFiles(vector<string> input_files, int k) {
   FILE *in[k];
   FILE *output_files[k];
   vector<string> output_file_names;
+  vector<string> compressed_file_names;
   vector<kv> min_max;
 
   for (int i = 0; i < input_files.size(); i++) {
@@ -65,6 +68,8 @@ vector<subcomponent> mergeFiles(vector<string> input_files, int k) {
 
         if(index == DEFAULT_BUFFER_SIZE*2){
             fwrite(arr, sizeof(int), index, output_files[output_counter]);
+            string compressed_file = string(rle_delta_file_encode(compressed_file_names.at(output_counter).c_str()));
+            compressed_file_names.push_back(compressed_file);
             kv pair;
             pair.key = arr[0];
             pair.value = arr[(DEFAULT_BUFFER_SIZE*2) - 2];
@@ -103,6 +108,7 @@ vector<subcomponent> mergeFiles(vector<string> input_files, int k) {
   for(int i = 0; i < output_file_names.size(); i++){
       subcomponent temp;
       temp.filename = output_file_names.at(i);
+      temp.compressed_filename = compressed_file_names.at(i);
       temp.min_value = min_max.at(i).key;
       temp.max_value = min_max.at(i).value;
       final_subcomponents.push_back(temp);
@@ -119,7 +125,6 @@ component sort(vector<component> components){
         component temp = components.at(i);
         for(int j = 0; j < temp.subcomponents.size(); j++){
             names.push_back(temp.subcomponents.at(j).filename);
-            cout << temp.subcomponents.at(j).filename << "\n";
         }
     }
 

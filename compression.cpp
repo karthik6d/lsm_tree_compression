@@ -8,7 +8,7 @@
 FileNode *openfiles = NULL;
 
 
-Status rle_delta_file_encode(char *filepath) {
+char* rle_delta_file_encode(const char *filepath) {
     // printf("rdfe check 1\n");
 
     FILE *infile = fopen(filepath, "r");
@@ -16,7 +16,7 @@ Status rle_delta_file_encode(char *filepath) {
     if (infile == NULL) {
         // File opening error
         printf("Error opening infile\n");
-        return ERR_FOPEN;
+        return "ERROR OPEN";
     }
 
     // size_t ints_per_page = getpagesize()/sizeof(int);
@@ -33,7 +33,7 @@ Status rle_delta_file_encode(char *filepath) {
             printf("Error reading first set of ints\n");
             free(stream);
             fclose(infile);
-            return ERR_FREAD;
+            return "ERROR READ";
         }
     }
 
@@ -41,7 +41,7 @@ Status rle_delta_file_encode(char *filepath) {
         printf("No ints to read\n");
         free(stream);
         fclose(infile);
-        return OK;
+        return "OK";
     }
 
     char *path_copy_base = strdup(filepath);
@@ -50,7 +50,7 @@ Status rle_delta_file_encode(char *filepath) {
 
     size_t filename_len = strlen(path_copy);
     char *new_filename = (char *)malloc(8 + filename_len);
-    sprintf(new_filename, "../enc/%s", path_copy + 7);
+    sprintf(new_filename, "enc/%s", path_copy + 7);
     new_filename[strlen(new_filename) - 3] = 'e';
     new_filename[strlen(new_filename) - 2] = 'n';
     new_filename[strlen(new_filename) - 1] = 'c';
@@ -66,7 +66,7 @@ Status rle_delta_file_encode(char *filepath) {
         free(new_filename);
         free(stream);
         fclose(infile);
-        return ERR_FOPEN;
+        return "ERROR OPEN";
     }
 
     free(new_filename);
@@ -80,13 +80,13 @@ Status rle_delta_file_encode(char *filepath) {
             free(stream);
             fclose(infile);
             fclose(outfile);
-            return ERR_FWRITE;
+            return "ERROR WRITE";
         }
 
         free(stream);
         fclose(infile);
         fclose(outfile);
-        return OK;
+        return new_filename;
     }
 
     int base_int = stream[0];
@@ -124,7 +124,7 @@ Status rle_delta_file_encode(char *filepath) {
                 free(write_buffer);
                 fclose(infile);
                 fclose(outfile);
-                return ERR_FWRITE;
+                return "ERROR WRITE";
             }
 
             memmove(write_buffer, write_buffer + ints_per_page, sizeof(RLEPair)*(write_ctr + 1 - ints_per_page));
@@ -140,7 +140,7 @@ Status rle_delta_file_encode(char *filepath) {
                 free(write_buffer);
                 fclose(infile);
                 fclose(outfile);
-                return ERR_FREAD;
+                return "ERROR READ";
             }
 
             --inprog;
@@ -162,14 +162,14 @@ Status rle_delta_file_encode(char *filepath) {
         free(write_buffer);
         fclose(infile);
         fclose(outfile);
-        return ERR_FWRITE;
+        return "ERROR WRITE";
     }
 
     free(stream);
     free(write_buffer);
     fclose(infile);
     fclose(outfile);
-    return OK;
+    return new_filename;
 }
 
 int *rlestreamdecode(char *filepath, size_t seg_len, size_t *num_res) {

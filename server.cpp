@@ -1,4 +1,5 @@
 #include "quicksort.h"
+#include "compression.h"
 
 #include <assert.h>
 #include <stdio.h>
@@ -115,6 +116,7 @@ subcomponent create_subcomponent(vector<kv>& kvs, int start, int end) {
 	}
   }
 
+  //Have to add the compressed as well
   // creating the data file
   string subcomponent_file_name("data/C");
   subcomponent_file_name.append(to_string(component_count++));
@@ -126,7 +128,11 @@ subcomponent create_subcomponent(vector<kv>& kvs, int start, int end) {
   data_file.write((char*)(kvs.data() + start), (end - start) * sizeof(kv));
   data_file.close();
 
+  //Add the compressed version of the file
+  string compressed_file = string(rle_delta_file_encode(subcomponent_file_name.c_str()));
+
   return {.filename = subcomponent_file_name,
+          .compressed_filename = compressed_file,
 		  .min_value = min_value,
 		  .max_value = max_value};
 }
@@ -283,6 +289,8 @@ pair<read_result, int> component::read(int key) {
 }
 
 vector<kv> subcomponent::get_kvs() {
+    //Remove first four lines of code
+    //Decode with DEFAULT_BUFFER_SIZE * 2
   ifstream f(this->filename, ios::ate | ios::binary);
 
   // get the length of the file

@@ -35,5 +35,5 @@ typedef struct FileNode {
     struct FileNode *next;
 } FileNode;
 
-Status rle_delta_file_encode(char *filepath);
+char* rle_delta_file_encode(const char *filepath);
 int *rlestreamdecode(char *filepath, size_t seg_len, size_t *num_res);
