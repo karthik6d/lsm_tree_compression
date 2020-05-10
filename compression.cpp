@@ -9,7 +9,7 @@
 FileNode *openfiles = NULL;
 
 
-char* rle_delta_file_encode(const char *filepath) {
+Status rle_delta_file_encode(const char *filepath, char **new_file) {
     // printf("rdfe check 1\n");
     //printf("FILEPATH: %s\n", filepath);
 
@@ -18,7 +18,7 @@ char* rle_delta_file_encode(const char *filepath) {
     if (infile == NULL) {
         // File opening error
         printf("Error opening infile\n");
-        return "ERROR OPEN";
+        return ERR_FOPEN;
     }
 
     // size_t ints_per_page = getpagesize()/sizeof(int);
@@ -35,7 +35,7 @@ char* rle_delta_file_encode(const char *filepath) {
             printf("Error reading first set of ints\n");
             free(stream);
             fclose(infile);
-            return "ERROR READ";
+            return ERR_FREAD;
         }
     }
 
@@ -43,7 +43,7 @@ char* rle_delta_file_encode(const char *filepath) {
         printf("No ints to read\n");
         free(stream);
         fclose(infile);
-        return "OK";
+        return OK;
     }
 
 //    char *path_copy_base = strdup(filepath);
@@ -56,7 +56,7 @@ char* rle_delta_file_encode(const char *filepath) {
     }
     new_path += "enc";
 
-    char *new_filename = (char *)malloc(new_path.length());
+    char *new_filename = (char *)malloc(new_path.length() + 1);
     strcpy(new_filename, new_path.c_str());
 
 //    size_t filename_len = strlen(path_copy);
@@ -68,7 +68,7 @@ char* rle_delta_file_encode(const char *filepath) {
 //    new_filename[strlen(new_filename) - 1] = 'c';
     // new_filename[7 + filename_len] = '\0';
 
-    printf("new_filename = %s\n", new_filename);
+    // printf("new_filename = %s\n", new_filename);
 
     //free(path_copy_base);
 
@@ -78,10 +78,10 @@ char* rle_delta_file_encode(const char *filepath) {
         free(new_filename);
         free(stream);
         fclose(infile);
-        return "ERROR OPEN";
+        return ERR_FOPEN;
     }
 
-    free(new_filename);
+    // free(new_filename);
 
     if (ints_read == 1) {
         RLEPair pair;
@@ -92,13 +92,15 @@ char* rle_delta_file_encode(const char *filepath) {
             free(stream);
             fclose(infile);
             fclose(outfile);
-            return "ERROR WRITE";
+            return ERR_FWRITE;
         }
 
         free(stream);
         fclose(infile);
         fclose(outfile);
-        return new_filename;
+
+        *new_file = new_filename;
+        return OK;
     }
 
     int base_int = stream[0];
@@ -117,7 +119,7 @@ char* rle_delta_file_encode(const char *filepath) {
     size_t read_ctr = 2;
 
     int inprog = 1;
-    int failed = 0;
+    // int failed = 0;
 
     while (inprog) {
         while (read_ctr < ints_read) {
@@ -136,7 +138,7 @@ char* rle_delta_file_encode(const char *filepath) {
                 free(write_buffer);
                 fclose(infile);
                 fclose(outfile);
-                return "ERROR WRITE";
+                return ERR_FWRITE;
             }
 
             memmove(write_buffer, write_buffer + ints_per_page, sizeof(RLEPair)*(write_ctr + 1 - ints_per_page));
@@ -152,7 +154,7 @@ char* rle_delta_file_encode(const char *filepath) {
                 free(write_buffer);
                 fclose(infile);
                 fclose(outfile);
-                return "ERROR READ";
+                return ERR_FREAD;
             }
 
             --inprog;
@@ -174,14 +176,16 @@ char* rle_delta_file_encode(const char *filepath) {
         free(write_buffer);
         fclose(infile);
         fclose(outfile);
-        return "ERROR WRITE";
+        return ERR_FWRITE;
     }
 
     free(stream);
     free(write_buffer);
     fclose(infile);
     fclose(outfile);
-    return new_filename;
+    
+    *new_file = new_filename;
+    return OK;
 }
 
 int *rlestreamdecode(const char *filepath, size_t seg_len, size_t *num_res) {
@@ -279,26 +283,31 @@ int *rlestreamdecode(const char *filepath, size_t seg_len, size_t *num_res) {
         i += (seg_len - read_ctr)*(read_ctr == cursor_len);
     }
 
-    printf("HELLO");
-    printf("rsd check 6 fuck\n");
-    printf("WHAT");
+    // printf("HELLO\n");
+    printf("rsd check 6\n");
+    // printf("WHAT\n");
 
-    for(size_t i = 0; i < seg_len; i++){
-        printf("BEFORE");
-        //printf("Hello: %d\t", toReturn[i]);
-    }
+    // for(size_t i = 0; i < seg_len; i++){
+    //     printf("BEFORE");
+    //     //printf("Hello: %d\t", toReturn[i]);
+    // }
 
     memmove(((RLEPair *)(targetfile -> cursor)) + 1, ((RLEPair *)(targetfile -> cursor)) + 1 + read_ctr,
             sizeof(RLEPair)*(cursor_len - read_ctr));
 
+    printf("rsd check 7\n");
+
     ((RLEPair *)(targetfile -> cursor)) -> data = cursor_len - read_ctr;
 
     if (write_ctr < seg_len) {
+        printf("rsd check 7.1\n");
         toReturn = (int *)realloc(toReturn, write_ctr*sizeof(int));
 
         fclose(targetfile -> fp);
         free(targetfile -> filepath);
         free(targetfile -> cursor);
+
+        printf("rsd check 7.2\n");
 
         if (targetfile -> next == NULL && targetfile -> prev == NULL) {
             openfiles = NULL;
@@ -315,12 +324,16 @@ int *rlestreamdecode(const char *filepath, size_t seg_len, size_t *num_res) {
             targetfile -> prev -> next = targetfile -> next;
         }
 
+        printf("rsd check 7.3\n");
+
         free(targetfile);
     }
 
+    printf("rsd check 8\n");
+
     *num_res = write_ctr;
 
-    printf("rsd check 7\n");
+    printf("rsd check 9\n");
 
     return toReturn;
 }

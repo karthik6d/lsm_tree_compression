@@ -59,16 +59,20 @@ void load(string path) {
   string line;
 
   while (getline(ss, line)) {
-	cout << "\r" << ++i << "/" << lines << flush;
+  	cout << "\r" << ++i << "/" << lines << "\n" << flush;
 
-	istringstream ss(line);
+  	istringstream ss(line);
 
-	string key_s, value_s;
+  	string key_s, value_s;
 
-	getline(ss, key_s, ',');
-	getline(ss, value_s, ',');
+  	getline(ss, key_s, ',');
+  	getline(ss, value_s, ',');
 
-	current_db->write(stoi(key_s), stoi(value_s));
+    cout << "pre-write\n";
+
+  	current_db -> write(stoi(key_s), stoi(value_s));
+
+    cout << "iter end\n";
   }
 
   cout << endl;
@@ -76,16 +80,22 @@ void load(string path) {
 
 void LSM_Tree::write(int key, int value) {
   // if it fits into the top-level buffer, just add it there
+  cout << "pre top level buffer check\n";
   if (this->buffer.size() < DEFAULT_BUFFER_SIZE) {
-	this->buffer.push_back({key, value});
-	return;
+    this->buffer.push_back({key, value});
+    return;
   }
 
   // otherwise, we have to create a new component for it
+  cout << "pre create component\n";
   component c = create_component(this->buffer);
+  cout << "pre insert component\n";
   this->insert_component(c);
+  cout << "pre buffer clear\n";
   this->buffer.clear();
+  cout << "pre push back\n";
   this->buffer.push_back({key, value});
+  cout << "!! write end !!\n";
 }
 
 void LSM_Tree::del(int key) { this->write(-key, 0); }
@@ -129,7 +139,10 @@ subcomponent create_subcomponent(vector<kv>& kvs, int start, int end) {
   data_file.close();
 
   //Add the compressed version of the file
-  string compressed_file = string(rle_delta_file_encode(subcomponent_file_name.c_str()));
+  char *outfile_name;
+  Status status = rle_delta_file_encode(subcomponent_file_name.c_str(), &outfile_name);
+  (void)status;
+  string compressed_file = string(outfile_name);
 
   return {.filename = subcomponent_file_name,
           .compressed_filename = compressed_file,
@@ -177,19 +190,27 @@ component create_component(vector<kv> kvs) {
 }
 
 void LSM_Tree::insert_component(component c) {
+  cout << "tree_insert_component check 1\n";
   int i = 0;
 
+  cout << "tree_insert_component check 2\n";
   pair<bool, component> res;
 
+  cout << "tree_insert_component check 3\n";
   do {
-	if (i >= this->levels.size()) {
-	  this->levels.push_back(level());
-	}
+    cout << "tree_insert_component check 3.1\n";
+  	if (i >= this->levels.size()) {
+  	  this->levels.push_back(level());
+  	}
 
-	res = this->levels[i++].insert_component(c);
+    cout << "tree_insert_component check 3.2\n";
+  	res = this->levels[i++].insert_component(c);
 
-	c = res.second;
+    cout << "tree_insert_component check 3.3\n";
+  	c = res.second;
   } while (res.first);
+
+  cout << "tree_insert_component check 4\n";
 }
 
 pair<read_result, int> LSM_Tree::read(int key) {
@@ -218,10 +239,11 @@ pair<read_result, int> LSM_Tree::read(int key) {
 }
 
 pair<bool, component> level::insert_component(component c) {
+  cout << "level_insert_component check 1\n";
   if (this->components.size() < COMPONENTS_PER_LEVEL) {
-	this->components.push_back(c);
+  	this->components.push_back(c);
 
-	return pair<bool, component>(false, component());
+  	return pair<bool, component>(false, component());
   }
 
   // Merge Step
@@ -236,12 +258,22 @@ pair<bool, component> level::insert_component(component c) {
 //    }
 //  }
 //  cout << "\nBefore External Sort1 1 1\t";
+
+  cout << "level_insert_component check 2\n";
+
   auto new_c = sort(this->components);
 //    auto new_c = create_component(all_kvs);
   // End Merge Step
 
+  cout << "level_insert_component check 3\n";
+
   this->components.clear();
+
+  cout << "level_insert_component check 4\n";
+
   this->components.push_back(c);
+
+  cout << "level_insert_component check 5\n";
 
   return pair<bool, component>(true, new_c);
 }
@@ -307,8 +339,8 @@ vector<kv> subcomponent::get_kvs() {
 //  f.read((char*)buf, length);
 //
 //  f.close();
-    size_t* number_read = NULL;
-    kv* buf = (kv*) rlestreamdecode(this->compressed_filename.c_str(), length/4, number_read);
+    size_t number_read = 0;
+    kv* buf = (kv*) rlestreamdecode(this->compressed_filename.c_str(), length/4, &number_read);
 
   return vector<kv>(buf, buf + length / sizeof(kv));
 }
@@ -394,7 +426,7 @@ vector<int> execute_workload() {
   for (auto e : workload) {
 	i++;
 
-	cout << "\r" << i << "/" << workload.size() << flush;
+	cout << "\r" << i << "/" << workload.size() << "\n" << flush;
 
 	switch (e.type) {
 	  case read_query: {
