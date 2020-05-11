@@ -38,3 +38,4 @@ typedef struct FileNode {
 Status rle_delta_file_encode(const char *filepath, char **new_file);
 // int *rlestreamdecode(const char *filepath, size_t seg_len, size_t *num_res);
 int *rle_delta_stream_decode(const char *filepath, size_t seg_len, size_t *num_res);
+int *rle_delta_f2m_decode(const char *filepath, size_t seg_len, size_t *num_res);

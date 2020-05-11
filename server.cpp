@@ -341,7 +341,8 @@ vector<kv> subcomponent::get_kvs() {
 //  f.close();
     size_t number_read = 0;
     // kv* buf = (kv*) rlestreamdecode(this->compressed_filename.c_str(), length/4, &number_read);
-    kv* buf = (kv*) rle_delta_stream_decode(this->compressed_filename.c_str(), length/4, &number_read);
+    // kv* buf = (kv*) rle_delta_stream_decode(this->compressed_filename.c_str(), length/4, &number_read);
+    kv* buf = (kv*) rle_delta_f2m_decode(this->compressed_filename.c_str(), length/4, &number_read);
 
   return vector<kv>(buf, buf + length / sizeof(kv));
 }

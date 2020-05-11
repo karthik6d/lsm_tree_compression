@@ -496,6 +496,45 @@ int *rle_delta_stream_decode(const char *filepath, size_t seg_len, size_t *num_r
 }
 
 
+int *rle_delta_f2m_decode(const char *filepath, size_t seg_len, size_t *num_res) {
+    FILE *infile = fopen(filepath, "r");
+
+    RLEPair *read_buffer = (RLEPair *)calloc(sizeof(RLEPair), seg_len + 1);
+
+    size_t elts_read = fread(read_buffer, sizeof(RLEPair), seg_len, infile);
+
+    read_buffer -> data = (read_buffer + 1) -> data;
+    read_buffer -> count = elts_read;
+    (read_buffer + 1) -> data = 0;
+    (read_buffer + 1) -> count = 1;
+
+    int *toReturn = (int *)malloc(seg_len*sizeof(int));
+
+    RLEPair *enc = read_buffer + 1;
+
+    size_t write_ctr = 0;
+    size_t read_ctr = 0;
+
+    for (int i = 0; i < read_buffer -> count; ++i) {
+        read_buffer -> data = toReturn[i] = (read_buffer -> data) + (enc -> data);
+        enc -> count = (enc -> count) - 1;
+        read_ctr += ((enc -> count) == 0);
+        enc = enc + ((enc -> count) == 0);
+        ++write_ctr;
+        i += (seg_len - read_ctr)*(read_ctr == elts_read);
+    }
+
+    toReturn = (int *)realloc(toReturn, write_ctr*sizeof(int));
+
+    *num_res = write_ctr;
+
+    fclose(infile);
+    free(read_buffer);
+
+    return toReturn;
+}
+
+
 
 
 
