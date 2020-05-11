@@ -46,7 +46,8 @@ vector<subcomponent> mergeFiles(vector<string> input_files, vector<string> compr
     cout << "mergeFile check 4.1\n";
     int read_data[2];
 
-    cout << "mergeFile check 4.2 - in[i] = " << in[i] << "\n";
+    cout << "mergeFile check 4.2 - in[i] = " << in[i] << "; k = " << k << "; input_files.size() = "
+      << input_files.size() << "; i = " << i << "\n";
 
     size_t elts_read = fread(read_data, sizeof(int), 2, in[i]);
 
