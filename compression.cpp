@@ -190,8 +190,164 @@ Status rle_delta_file_encode(const char *filepath, char **new_file) {
   return OK;
 }
 
-int *rlestreamdecode(const char *filepath, size_t seg_len, size_t *num_res) {
-  printf("rsd check 1\n");
+// int *rlestreamdecode(const char *filepath, size_t seg_len, size_t *num_res) {
+//     printf("rsd check 1\n");
+
+//     FileNode *targetfile = openfiles;
+
+//     while (targetfile != NULL) {
+//         if (!strcmp(filepath, targetfile -> filepath)) {
+//             break;
+//         }
+
+//         targetfile = targetfile -> next;
+//     }
+
+//     printf("rsd check 2\n");
+
+//     if (targetfile == NULL && openfiles == NULL) {
+//         printf("rsd check 2.1.1\n");
+
+//         FILE *infile = fopen(filepath, "r");
+
+//         targetfile = openfiles = (FileNode *)malloc(sizeof(FileNode));
+//         targetfile -> prev = targetfile -> next = NULL;
+//         targetfile -> filepath = strdup(filepath);
+//         targetfile -> etype = RLE;
+//         targetfile -> cursor = (void *)malloc((seg_len + 1)*sizeof(RLEPair));
+
+//         printf("rsd check 2.2.1 - %s, %p\n", filepath, infile);
+
+//         size_t num_read = fread(((RLEPair *)(targetfile -> cursor)) + 1,
+//         sizeof(RLEPair), seg_len, infile);
+
+//         printf("rsd check 2.3.1\n");
+
+//         targetfile -> eofreached = num_read != seg_len;
+//         ((RLEPair *)(targetfile -> cursor)) -> data = num_read;
+
+//         targetfile -> fp = infile;
+//     }
+//     else if (targetfile == NULL && openfiles != NULL) {
+//         printf("rsd check 2.1.2\n");
+
+//         FILE *infile = fopen(filepath, "r");
+
+//         targetfile = (FileNode *)malloc(sizeof(FileNode));
+//         targetfile -> prev = NULL;
+//         targetfile -> next = openfiles;
+//         targetfile -> filepath = strdup(filepath);
+//         targetfile -> etype = RLE;
+//         targetfile -> cursor = (void *)malloc((seg_len + 1)*sizeof(RLEPair));
+
+//         size_t num_read = fread(((RLEPair *)(targetfile -> cursor)) + 1,
+//         sizeof(RLEPair), seg_len, infile);
+
+//         targetfile -> eofreached = num_read != seg_len;
+//         ((RLEPair *)(targetfile -> cursor)) -> data = num_read;
+
+//         targetfile -> fp = infile;
+
+//         openfiles = targetfile;
+//     }
+
+//     printf("rsd check 3\n");
+
+//     int cursor_len = ((RLEPair *)(targetfile -> cursor)) -> data;
+
+//     if (cursor_len < seg_len && !(targetfile -> eofreached)) {
+//         targetfile -> cursor = (void *)realloc(targetfile -> cursor,
+//         (cursor_len + seg_len + 1)*sizeof(RLEPair));
+
+//         size_t num_read = fread((RLEPair *)(targetfile -> cursor) + 1 +
+//         cursor_len,
+//                                 sizeof(RLEPair), seg_len, targetfile -> fp);
+
+//         ((RLEPair *)(targetfile -> cursor)) -> data = cursor_len + num_read;
+
+//         targetfile -> eofreached = (num_read != seg_len);
+//     }
+
+//     printf("rsd check 4\n");
+
+//     int *toReturn = (int *)malloc(seg_len*sizeof(int));
+
+//     size_t write_ctr = 0;
+//     size_t read_ctr = 0;
+
+//     RLEPair *enc = (RLEPair *)(targetfile -> cursor) + 1;
+
+//     cursor_len = ((RLEPair *)(targetfile -> cursor)) -> data;
+
+//     printf("rsd check 5\n");
+
+//     for (size_t i = 0; i < seg_len; ++i) {
+//         toReturn[i] = (enc + read_ctr) -> data;
+//         ++write_ctr;
+//         (enc + read_ctr) -> count = (enc + read_ctr) -> count - 1;
+//         read_ctr += !((enc + read_ctr) -> count);
+//         i += (seg_len - read_ctr)*(read_ctr == cursor_len);
+//     }
+
+//     // printf("HELLO\n");
+//     printf("rsd check 6\n");
+//     // printf("WHAT\n");
+
+//     // for(size_t i = 0; i < seg_len; i++){
+//     //     printf("BEFORE");
+//     //     //printf("Hello: %d\t", toReturn[i]);
+//     // }
+
+//     memmove(((RLEPair *)(targetfile -> cursor)) + 1, ((RLEPair *)(targetfile
+//     -> cursor)) + 1 + read_ctr,
+//             sizeof(RLEPair)*(cursor_len - read_ctr));
+
+//     printf("rsd check 7\n");
+
+//     ((RLEPair *)(targetfile -> cursor)) -> data = cursor_len - read_ctr;
+
+//     if (write_ctr < seg_len) {
+//         printf("rsd check 7.1\n");
+//         toReturn = (int *)realloc(toReturn, write_ctr*sizeof(int));
+
+//         fclose(targetfile -> fp);
+//         free(targetfile -> filepath);
+//         free(targetfile -> cursor);
+
+//         printf("rsd check 7.2\n");
+
+//         if (targetfile -> next == NULL && targetfile -> prev == NULL) {
+//             openfiles = NULL;
+//         }
+//         else if (targetfile -> next != NULL && targetfile -> prev == NULL) {
+//             openfiles = targetfile -> next;
+//             openfiles -> prev = NULL;
+//         }
+//         else if (targetfile -> next == NULL && targetfile -> prev != NULL) {
+//             targetfile -> prev -> next = NULL;
+//         }
+//         else {
+//             targetfile -> next -> prev = targetfile -> prev;
+//             targetfile -> prev -> next = targetfile -> next;
+//         }
+
+//         printf("rsd check 7.3\n");
+
+//         free(targetfile);
+//     }
+
+//     printf("rsd check 8\n");
+
+//     *num_res = write_ctr;
+
+//     printf("rsd check 9\n");
+
+//     return toReturn;
+// }
+
+int *rle_delta_stream_decode(const char *filepath, size_t seg_len,
+                             size_t *num_res) {
+  printf("rdsd check 1\n");
 
   FileNode *targetfile = openfiles;
 
@@ -203,10 +359,10 @@ int *rlestreamdecode(const char *filepath, size_t seg_len, size_t *num_res) {
     targetfile = targetfile->next;
   }
 
-  printf("rsd check 2\n");
+  printf("rdsd check 2\n");
 
   if (targetfile == NULL && openfiles == NULL) {
-    printf("rsd check 2.1.1\n");
+    // printf("rdsd check 2.1.1\n");
 
     FILE *infile = fopen(filepath, "r");
 
@@ -216,19 +372,26 @@ int *rlestreamdecode(const char *filepath, size_t seg_len, size_t *num_res) {
     targetfile->etype = RLE;
     targetfile->cursor = (void *)malloc((seg_len + 1) * sizeof(RLEPair));
 
-    printf("rsd check 2.2.1 - %s, %p\n", filepath, infile);
+    // printf("rdsd check 2.2.1 - %s, %p\n", filepath, infile);
 
     size_t num_read = fread(((RLEPair *)(targetfile->cursor)) + 1,
                             sizeof(RLEPair), seg_len, infile);
 
-    printf("rsd check 2.3.1\n");
+    // printf("rdsd check 2.3.1\n");
 
     targetfile->eofreached = num_read != seg_len;
-    ((RLEPair *)(targetfile->cursor))->data = num_read;
+
+    ((RLEPair *)(targetfile->cursor))->data =
+        (((RLEPair *)(targetfile->cursor)) + 1)->data;
+    ((RLEPair *)(targetfile->cursor))->count = num_read;
+    (((RLEPair *)(targetfile->cursor)) + 1)->data = 0;
+    (((RLEPair *)(targetfile->cursor)) + 1)->count = 1;
+
+    // ((RLEPair *)(targetfile -> cursor)) -> data = num_read;
 
     targetfile->fp = infile;
   } else if (targetfile == NULL && openfiles != NULL) {
-    printf("rsd check 2.1.2\n");
+    // printf("rdsd check 2.1.2\n");
 
     FILE *infile = fopen(filepath, "r");
 
@@ -243,16 +406,23 @@ int *rlestreamdecode(const char *filepath, size_t seg_len, size_t *num_res) {
                             sizeof(RLEPair), seg_len, infile);
 
     targetfile->eofreached = num_read != seg_len;
-    ((RLEPair *)(targetfile->cursor))->data = num_read;
+
+    ((RLEPair *)(targetfile->cursor))->data =
+        (((RLEPair *)(targetfile->cursor)) + 1)->data;
+    ((RLEPair *)(targetfile->cursor))->count = num_read;
+    (((RLEPair *)(targetfile->cursor)) + 1)->data = 0;
+    (((RLEPair *)(targetfile->cursor)) + 1)->count = 1;
+
+    // ((RLEPair *)(targetfile -> cursor)) -> data = num_read;
 
     targetfile->fp = infile;
 
     openfiles = targetfile;
   }
 
-  printf("rsd check 3\n");
+  printf("rdsd check 3\n");
 
-  int cursor_len = ((RLEPair *)(targetfile->cursor))->data;
+  int cursor_len = ((RLEPair *)(targetfile->cursor))->count;
 
   if (cursor_len < seg_len && !(targetfile->eofreached)) {
     targetfile->cursor = (void *)realloc(
@@ -261,58 +431,52 @@ int *rlestreamdecode(const char *filepath, size_t seg_len, size_t *num_res) {
     size_t num_read = fread((RLEPair *)(targetfile->cursor) + 1 + cursor_len,
                             sizeof(RLEPair), seg_len, targetfile->fp);
 
-    ((RLEPair *)(targetfile->cursor))->data = cursor_len + num_read;
+    ((RLEPair *)(targetfile->cursor))->count = cursor_len + num_read;
 
     targetfile->eofreached = (num_read != seg_len);
   }
 
-  printf("rsd check 4\n");
+  printf("rdsd check 4\n");
 
   int *toReturn = (int *)malloc(seg_len * sizeof(int));
 
   size_t write_ctr = 0;
   size_t read_ctr = 0;
 
+  RLEPair *tracker = (RLEPair *)(targetfile->cursor);
   RLEPair *enc = (RLEPair *)(targetfile->cursor) + 1;
 
-  cursor_len = ((RLEPair *)(targetfile->cursor))->data;
+  cursor_len = ((RLEPair *)(targetfile->cursor))->count;
 
-  printf("rsd check 5\n");
+  printf("rdsd check 5\n");
 
   for (size_t i = 0; i < seg_len; ++i) {
-    toReturn[i] = (enc + read_ctr)->data;
+    tracker->data = toReturn[i] = (enc + read_ctr)->data + (tracker->data);
     ++write_ctr;
     (enc + read_ctr)->count = (enc + read_ctr)->count - 1;
     read_ctr += !((enc + read_ctr)->count);
     i += (seg_len - read_ctr) * (read_ctr == cursor_len);
   }
 
-  // printf("HELLO\n");
-  printf("rsd check 6\n");
-  // printf("WHAT\n");
-
-  // for(size_t i = 0; i < seg_len; i++){
-  //     printf("BEFORE");
-  //     //printf("Hello: %d\t", toReturn[i]);
-  // }
+  printf("rdsd check 6\n");
 
   memmove(((RLEPair *)(targetfile->cursor)) + 1,
           ((RLEPair *)(targetfile->cursor)) + 1 + read_ctr,
           sizeof(RLEPair) * (cursor_len - read_ctr));
 
-  printf("rsd check 7\n");
+  printf("rdsd check 7\n");
 
-  ((RLEPair *)(targetfile->cursor))->data = cursor_len - read_ctr;
+  ((RLEPair *)(targetfile->cursor))->count = cursor_len - read_ctr;
 
   if (write_ctr < seg_len) {
-    printf("rsd check 7.1\n");
+    printf("rdsd check 7.1\n");
     toReturn = (int *)realloc(toReturn, write_ctr * sizeof(int));
 
     fclose(targetfile->fp);
     free(targetfile->filepath);
     free(targetfile->cursor);
 
-    printf("rsd check 7.2\n");
+    printf("rdsd check 7.2\n");
 
     if (targetfile->next == NULL && targetfile->prev == NULL) {
       openfiles = NULL;
@@ -326,16 +490,16 @@ int *rlestreamdecode(const char *filepath, size_t seg_len, size_t *num_res) {
       targetfile->prev->next = targetfile->next;
     }
 
-    printf("rsd check 7.3\n");
+    printf("rdsd check 7.3\n");
 
     free(targetfile);
   }
 
-  printf("rsd check 8\n");
+  printf("rdsd check 8\n");
 
   *num_res = write_ctr;
 
-  printf("rsd check 9\n");
+  printf("rdsd check 9\n");
 
   return toReturn;
 }
