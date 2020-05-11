@@ -1,6 +1,6 @@
 .PHONY: clean format profile
 
-CPPFLAGS = -std=c++11 -O3 -Wall
+CPPFLAGS = -std=c++17 -O3 -Wall -march=native -pipe
 
 all: gen server
 
@@ -13,12 +13,14 @@ clean:
 	rm -rf data
 	rm -f *.res
 	rm -f perf.data*
+	rm -rf enc
 
 gen: generator/generator.go
 	cd generator && go build . && mv generator ../gen
 
-server: server.cpp server.h quicksort.cpp quicksort.h compression.cpp compression.h
-	g++ -o server $(CPPFLAGS) server.cpp quicksort.cpp compression.cpp -fsanitize=address
+server: server.cpp server.h merge.cpp merge.h compression.cpp \
+	compression.h lsm_tree.cpp lsm_tree.h minheap.h
+	g++ -o server $(CPPFLAGS) server.cpp merge.cpp compression.cpp lsm_tree.cpp
 
 format:
 	clang-format -i *.cpp *.h

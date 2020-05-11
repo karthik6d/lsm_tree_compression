@@ -2,22 +2,21 @@
 #include <stdlib.h>
 #include <string.h>
 
-
 typedef enum Status {
-    OK,
-    ERR_FOPEN,
-    ERR_FREAD,
-    ERR_FWRITE,
+  OK,
+  ERR_FOPEN,
+  ERR_FREAD,
+  ERR_FWRITE,
 } Status;
 
 typedef enum EncType {
-    RLE,
-    DELTA,
+  RLE,
+  DELTA,
 } EncType;
 
 typedef struct RLEPair {
-    int data;
-    int count;
+  int data;
+  int count;
 } RLEPair;
 
 // typedef struct RLECursor {
@@ -26,13 +25,13 @@ typedef struct RLEPair {
 // }
 
 typedef struct FileNode {
-    EncType etype;
-    char *filepath;
-    FILE *fp;
-    void *cursor;
-    int eofreached;
-    struct FileNode *prev;
-    struct FileNode *next;
+  EncType etype;
+  char *filepath;
+  FILE *fp;
+  void *cursor;
+  int eofreached;
+  struct FileNode *prev;
+  struct FileNode *next;
 } FileNode;
 
 Status rle_delta_file_encode(const char *filepath, char **new_file);

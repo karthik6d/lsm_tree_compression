@@ -50,7 +50,14 @@ minheap
 
 # ignore vscode folder
 .vscode
+.idea
 
 .DS_Store
 
 perf.data*
+enc
+
+test_component_iterator*
+test_minheap*
+
+tmp.cpp
