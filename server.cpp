@@ -57,7 +57,7 @@ void load(string path) {
   string line;
 
   while (getline(ss, line)) {
-    cout << "\r" << ++i << "/" << lines << flush;
+    // cout << "\r" << ++i << "/" << lines << flush;
 
     istringstream ss(line);
 
@@ -138,7 +138,7 @@ vector<int> execute_workload() {
   for (auto e : workload) {
     i++;
 
-    cout << "\r" << i << "/" << workload.size() << flush;
+    // cout << "\r" << i << "/" << workload.size() << flush;
 
     switch (e.type) {
       case read_query: {

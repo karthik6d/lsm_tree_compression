@@ -72,7 +72,7 @@ func uniformKey(i int) int32 {
 }
 
 func sequentialKey(i int) int32 {
-	return int32(i)
+	return int32(2 * i)
 }
 
 func normalKey(i int) int32 {
@@ -84,7 +84,7 @@ func uniformValue(key int32) int32 {
 }
 
 func sameValue(key int32) int32 {
-	return key
+	return key + 1
 }
 
 var keyDistributions = map[KeyDistribution](func(int) int32){0: uniformKey, 1: sequentialKey, 2: normalKey}

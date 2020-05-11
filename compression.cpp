@@ -26,7 +26,7 @@ Status rle_delta_file_encode(const char *filepath, char **new_file) {
     }
 
     // size_t ints_per_page = getpagesize()/sizeof(int);
-    size_t page_size = getpagesize();
+    size_t page_size = 8 * getpagesize();
     size_t ints_per_page = page_size/sizeof(int);
 
     int *stream = (int *)malloc(page_size);
