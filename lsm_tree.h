@@ -11,7 +11,7 @@
 #include <vector>
 
 // Defines number of key values pairs in Main Memory
-#define DEFAULT_BUFFER_SIZE 4096
+#define DEFAULT_BUFFER_SIZE 512
 
 // Defines the number of components per level before merging
 #define COMPONENTS_PER_LEVEL 10
@@ -51,9 +51,9 @@ typedef struct subcomponent_iterator {
 // Structure for subcomponent in LSM Tree
 typedef struct subcomponent {
   string filename;
-  string compressed_filename;
   int min_value;
   int max_value;
+  unsigned int num_values;
 
   subcomponent(vector<kv> kvs);
 

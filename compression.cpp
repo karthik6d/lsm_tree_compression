@@ -4,7 +4,11 @@
 #include <errno.h>
 #include "compression.h"
 #include <string>
+#include <iostream>
 
+using namespace std;
+
+int compressed_file_count = 0;
 
 FileNode *openfiles = NULL;
 
@@ -50,11 +54,13 @@ Status rle_delta_file_encode(const char *filepath, char **new_file) {
 //    char *path_copy = path_copy_base;
 
     std::string new_path = "enc/";
+    new_path += to_string(compressed_file_count++);
+    new_path += ".enc";
     //printf("SIZE OF FILEPATH: %d\n", sizeof(filepath));
-    for(int i = 5; i < strlen(filepath)-3; i++){
-        new_path.push_back(filepath[i]);
-    }
-    new_path += "enc";
+    // for(int i = 5; i < strlen(filepath); i++){
+    //     new_path.push_back(filepath[i]);
+    // }
+    // new_path += ".enc";
 
     char *new_filename = (char *)malloc(new_path.length() + 1);
     strcpy(new_filename, new_path.c_str());
@@ -183,7 +189,7 @@ Status rle_delta_file_encode(const char *filepath, char **new_file) {
     free(write_buffer);
     fclose(infile);
     fclose(outfile);
-    
+
     *new_file = new_filename;
     return OK;
 }
@@ -340,7 +346,7 @@ Status rle_delta_file_encode(const char *filepath, char **new_file) {
 
 
 int *rle_delta_stream_decode(const char *filepath, size_t seg_len, size_t *num_res) {
-    printf("rdsd check 1\n");
+    // printf("rdsd check 1\n");
 
     FileNode *targetfile = openfiles;
 
@@ -352,7 +358,7 @@ int *rle_delta_stream_decode(const char *filepath, size_t seg_len, size_t *num_r
         targetfile = targetfile -> next;
     }
 
-    printf("rdsd check 2\n");
+    // printf("rdsd check 2\n");
 
     if (targetfile == NULL && openfiles == NULL) {
         // printf("rdsd check 2.1.1\n");
@@ -410,7 +416,7 @@ int *rle_delta_stream_decode(const char *filepath, size_t seg_len, size_t *num_r
         openfiles = targetfile;
     }
 
-    printf("rdsd check 3\n");
+    // printf("rdsd check 3\n");
 
     int cursor_len = ((RLEPair *)(targetfile -> cursor)) -> count;
 
@@ -425,7 +431,7 @@ int *rle_delta_stream_decode(const char *filepath, size_t seg_len, size_t *num_r
         targetfile -> eofreached = (num_read != seg_len);
     }
 
-    printf("rdsd check 4\n");
+    // printf("rdsd check 4\n");
 
     int *toReturn = (int *)malloc(seg_len*sizeof(int));
 
@@ -437,7 +443,7 @@ int *rle_delta_stream_decode(const char *filepath, size_t seg_len, size_t *num_r
 
     cursor_len = ((RLEPair *)(targetfile -> cursor)) -> count;
 
-    printf("rdsd check 5\n");
+    // printf("rdsd check 5\n");
 
     for (size_t i = 0; i < seg_len; ++i) {
         tracker -> data = toReturn[i] = (enc + read_ctr) -> data + (tracker -> data);
@@ -447,24 +453,24 @@ int *rle_delta_stream_decode(const char *filepath, size_t seg_len, size_t *num_r
         i += (seg_len - read_ctr)*(read_ctr == cursor_len);
     }
 
-    printf("rdsd check 6\n");
+    // printf("rdsd check 6\n");
 
     memmove(((RLEPair *)(targetfile -> cursor)) + 1, ((RLEPair *)(targetfile -> cursor)) + 1 + read_ctr,
             sizeof(RLEPair)*(cursor_len - read_ctr));
 
-    printf("rdsd check 7\n");
+    // printf("rdsd check 7\n");
 
     ((RLEPair *)(targetfile -> cursor)) -> count = cursor_len - read_ctr;
 
-    if (write_ctr < seg_len) {
-        printf("rdsd check 7.1\n");
+    // if (write_ctr < seg_len) {
+        // printf("rdsd check 7.1\n");
         toReturn = (int *)realloc(toReturn, write_ctr*sizeof(int));
 
         fclose(targetfile -> fp);
         free(targetfile -> filepath);
         free(targetfile -> cursor);
 
-        printf("rdsd check 7.2\n");
+        // printf("rdsd check 7.2\n");
 
         if (targetfile -> next == NULL && targetfile -> prev == NULL) {
             openfiles = NULL;
@@ -481,16 +487,16 @@ int *rle_delta_stream_decode(const char *filepath, size_t seg_len, size_t *num_r
             targetfile -> prev -> next = targetfile -> next;
         }
 
-        printf("rdsd check 7.3\n");
+        // printf("rdsd check 7.3\n");
 
         free(targetfile);
-    }
+    // }
 
-    printf("rdsd check 8\n");
+    // printf("rdsd check 8\n");
 
     *num_res = write_ctr;
 
-    printf("rdsd check 9\n");
+    // printf("rdsd check 9\n");
 
     return toReturn;
 }
@@ -533,22 +539,3 @@ int *rle_delta_f2m_decode(const char *filepath, size_t seg_len, size_t *num_res)
 
     return toReturn;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

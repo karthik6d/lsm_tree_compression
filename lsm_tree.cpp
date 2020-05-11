@@ -51,6 +51,8 @@ subcomponent::subcomponent(vector<kv> kvs) {
   this->min_value = INT32_MAX;
   this->max_value = INT32_MIN;
 
+  this->num_values = kvs.size();
+
   for (auto pair : kvs) {
     int val = pair.key < 0 ? -pair.key : pair.key;
 
@@ -65,22 +67,22 @@ subcomponent::subcomponent(vector<kv> kvs) {
 
   // Have to add the compressed as well
   // creating the data file
-  this->filename = string("data/C");
-  this->filename.append(to_string(component_count++));
-  this->filename.append(".dat");
+  // this->filename = string("data/C");
+  // this->filename += to_string(component_count++);
 
-  ofstream data_file(this->filename, ios::binary);
+  ofstream data_file("data/tmp", ios::binary);
 
   // writing the key value pairs to the data file
   data_file.write((char*)kvs.data(), kvs.size() * sizeof(kv));
   data_file.close();
 
-  // Add the compressed version of the file
-  // char* outfile_name;
-  // Status status = rle_delta_file_encode(this->filename.c_str(),
-  // &outfile_name); (void)status; this->compressed_filename =
-  // string(outfile_name);
-  this->compressed_filename = "";
+  char* output_filename;
+
+  Status status = rle_delta_file_encode("data/tmp", &output_filename);
+
+  (void)status;
+
+  this->filename = string(output_filename);
 }
 
 component::component(vector<kv> kvs) {
@@ -233,31 +235,35 @@ component_iterator component::end() {
 
 vector<kv> subcomponent::get_kvs() {
   // Remove first four lines of code
-  // Decode with DEFAULT_BUFFER_SIZE * 2
-  ifstream f(this->filename, ios::ate | ios::binary);
+  size_t number_read = 0;
 
-  // get the length of the file
-  int length = f.tellg();
+  kv* buf = (kv*) rle_delta_stream_decode(this->filename.c_str(), this->num_values * 2, &number_read);
 
-  // the file must be length 8
-  assert(length % sizeof(kv) == 0);
+  return vector<kv>(buf, buf + this->num_values);
 
-  // go back to the beginning
-  f.seekg(0, f.beg);
 
-  // prepare the array and read in the data
-  kv buf[length / sizeof(kv)];
-  f.read((char*)buf, length);
+  // ifstream f(this->filename, ios::ate | ios::binary);
+  // int length = f.tellg();
 
-  f.close();
+  // // the file must be length 8	  // the file must be length 8
+  // assert(length % sizeof(kv) == 0);
 
-  return vector<kv>(buf, buf + length / sizeof(kv));
-  // size_t number_read = 0;
-  // kv* buf = (kv*)rlestreamdecode(this->compressed_filename.c_str(), length /
-  // 4,
-  //                                &number_read);
+  // // go back to the beginning	  // go back to the beginning
+  // f.seekg(0, f.beg);
+  // // prepare the array and read in the data	  // prepare the array and read in the data
+  // kv buf2[length / sizeof(kv)];
 
-  // return vector<kv>(buf, buf + length / sizeof(kv));
+  // f.read((char *) buf2, length);
+
+  // vector<kv> res2(buf2, buf2 + length / sizeof(kv));
+
+  // assert(res2.size() == res1.size());
+
+  // for (unsigned int i = 0; i < res2.size(); ++i) {
+  //   assert(res1[i].key == res2[i].key && res1[i].value == res2[i].value);
+  // }
+
+  // return res2;
 }
 
 pair<read_result, int> subcomponent::read(int key) {

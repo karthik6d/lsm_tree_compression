@@ -60,4 +60,5 @@ enc
 test_component_iterator*
 test_minheap*
 
+test_compression*
 tmp.cpp
