@@ -16,6 +16,9 @@
 // Defines the number of components per level before merging
 #define COMPONENTS_PER_LEVEL 10
 
+// Test for using compressed or uncompressed
+#define COMPRESSED 0
+
 using namespace std;
 
 enum read_result { found, not_found, deleted };
@@ -125,6 +128,7 @@ typedef struct level {
 // Structure for LSM Tree
 typedef struct LSM_Tree {
   string name;
+  bool compressed;
   vector<level> levels;
   vector<kv> buffer;
 

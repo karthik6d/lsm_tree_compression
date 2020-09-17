@@ -97,7 +97,7 @@ func main() {
 	// parse options for the generator
 	N := flag.Int("N", int(math.Pow(10, 7)), "the number of entries to start the db with")
 	numQueries := flag.Int("queries", int(math.Pow(10, 7)), "the number of queries to generate")
-	keyDistribution := flag.Int("keyDistribution", 0, "the distribution of the keys; 0 for uniform, 1 for sequential")
+	keyDistribution := flag.Int("keyDistribution", 0, "the distribution of the keys; 0 for uniform, 1 for sequential, 2 for normal")
 	valueDistribution := flag.Int("valueDistribution", 0, "the distribution of the values; 0 for uniform, 1 for same as key")
 	selectivity := flag.Int("selectivity", 100, "the selectivity of reads; integer 0 to 100")
 	dataFileName := flag.String("dataFile", "data.csv", "the file to write data to")

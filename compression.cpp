@@ -80,7 +80,7 @@ Status rle_delta_file_encode(const char *filepath, char **new_file) {
 
     FILE *outfile = fopen(new_filename, "w");
     if (outfile == NULL) {
-        printf("Error opening outfile - %s\n", new_filename);
+        cout << "Error opening outputfile - %s" << new_filename << " Error - %s" << strerror(errno) << endl;
         free(new_filename);
         free(stream);
         fclose(infile);

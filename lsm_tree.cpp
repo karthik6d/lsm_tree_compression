@@ -70,19 +70,32 @@ subcomponent::subcomponent(vector<kv> kvs) {
   // this->filename = string("data/C");
   // this->filename += to_string(component_count++);
 
-  ofstream data_file("data/tmp", ios::binary);
+  if (current_db->compressed) {
+    ofstream data_file("data/tmp", ios::binary);
 
-  // writing the key value pairs to the data file
-  data_file.write((char*)kvs.data(), kvs.size() * sizeof(kv));
-  data_file.close();
+    // writing the key value pairs to the data file
+    data_file.write((char*)kvs.data(), kvs.size() * sizeof(kv));
+    data_file.close();
 
-  char* output_filename;
+    char* output_filename;
 
-  Status status = rle_delta_file_encode("data/tmp", &output_filename);
+    Status status = rle_delta_file_encode("data/tmp", &output_filename);
 
-  (void)status;
+    (void)status;
 
-  this->filename = string(output_filename);
+    this->filename = string(output_filename);
+  } 
+  else {
+    this->filename = string("data/C");
+    this->filename.append(to_string(component_count++));
+    this->filename.append(".dat");
+
+    ofstream data_file(this->filename, ios::binary);
+
+    //writing the key value pairs to the data file
+    data_file.write((char*)kvs.data(), kvs.size() * sizeof(kv));
+    data_file.close();
+  }
 }
 
 component::component(vector<kv> kvs) {
@@ -235,35 +248,33 @@ component_iterator component::end() {
 
 vector<kv> subcomponent::get_kvs() {
   // Remove first four lines of code
-  size_t number_read = 0;
+  if (current_db->compressed) {
+    size_t number_read = 0;
 
-  kv* buf = (kv*) rle_delta_stream_decode(this->filename.c_str(), this->num_values * 2, &number_read);
+    kv* buf = (kv*) rle_delta_stream_decode(this->filename.c_str(), this->num_values * 2, &number_read);
 
-  return vector<kv>(buf, buf + this->num_values);
+    return vector<kv>(buf, buf + this->num_values);
+  }
+  else {
+    ifstream f(this->filename, ios::ate | ios::binary);
 
+    // get the length of the file
+    int length = f.tellg();
 
-  // ifstream f(this->filename, ios::ate | ios::binary);
-  // int length = f.tellg();
+    // the file must be length 8
+    assert(length % sizeof(kv) == 0);
 
-  // // the file must be length 8	  // the file must be length 8
-  // assert(length % sizeof(kv) == 0);
+    // go back to the beginning
+    f.seekg(0, f.beg);
 
-  // // go back to the beginning	  // go back to the beginning
-  // f.seekg(0, f.beg);
-  // // prepare the array and read in the data	  // prepare the array and read in the data
-  // kv buf2[length / sizeof(kv)];
+    // prepare the array and read in the data
+    kv buf[length / sizeof(kv)];
+    f.read((char*)buf, length);
 
-  // f.read((char *) buf2, length);
+    f.close();
 
-  // vector<kv> res2(buf2, buf2 + length / sizeof(kv));
-
-  // assert(res2.size() == res1.size());
-
-  // for (unsigned int i = 0; i < res2.size(); ++i) {
-  //   assert(res1[i].key == res2[i].key && res1[i].value == res2[i].value);
-  // }
-
-  // return res2;
+    return vector<kv>(buf, buf + length / sizeof(kv));
+  }
 }
 
 pair<read_result, int> subcomponent::read(int key) {
