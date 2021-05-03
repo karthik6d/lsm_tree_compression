@@ -23,7 +23,9 @@
 #include <netinet/in.h>
 #include <sys/un.h>
 #include <string.h>
+#include <arpa/inet.h>
 #define PORT 8080
+#define DEFAULT_STDIN_BUFFER_SIZE 2048
 #ifndef SOCK_PATH
 #define SOCK_PATH "cs165_unix_socket"
 #endif
@@ -38,6 +40,39 @@ void create(string db_name) {
   current_db = db;
 
   mkdir("data", 0755);
+}
+
+int connect_server_client(string ip, int port_number) 
+{
+    int client_socket;
+    size_t len;
+    struct sockaddr_in remote;
+
+    if ((client_socket = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
+        printf("L%d: Failed to create socket.\n", __LINE__);
+        return -1;
+    }
+
+    remote.sin_family=AF_INET;
+    remote.sin_port=htons(port_number);
+    remote.sin_addr.s_addr= inet_addr(ip.c_str());
+ 
+    cout << "Before connecting" << endl;
+    if (connect(client_socket, (struct sockaddr *)&remote, sizeof(remote)) == -1) {
+        printf("client connect failed: ");
+        printf("Value of errno: %d\n", errno);
+        return -1;
+    }
+    cout << "After connecting" << endl;
+
+    return client_socket;
+}
+
+void handle_distributed_writes(string ip, int port_number, string message) {
+  int client_socket = connect_server_client(ip, port_number);
+  send(client_socket, message.c_str(), message.length(), 0);
+  char* buffer = (char*)malloc(DEFAULT_STDIN_BUFFER_SIZE);
+  read(client_socket, buffer, DEFAULT_STDIN_BUFFER_SIZE);
 }
 
 int setup_server() {
@@ -100,6 +135,7 @@ void handle_client(int client_socket) {
       }
 
       vector<string> result;
+      string message_copy(message);
       stringstream s_stream(message); //create string stream from the string
       while(s_stream.good()) {
         string substr;
@@ -118,6 +154,20 @@ void handle_client(int client_socket) {
 
       if(result.at(0) == "write") {
         current_db->write(stoi(result.at(1)), stoi(result.at(2)));
+        // We use multi-threading here to 
+        // 1) Create a new client socket on this machine
+        // 2) Use that client socket to send the write message to the other machines (2)
+        // 3) These should be multi-threaded and I await for both "OK" Messages from the other servers
+        // 4) Now all these are in sync, and we can tell the client we are ready for more writes
+        int port1 = 10001;
+        int port2 = 10002;
+        string ip1 = 'idk';
+        string ip2 = 'idk1';
+        thread th1(handle_distributed_writes, ip1, port1, message_copy);
+        thread th2(handle_distributed_writes, ip2, port2, message_copy);
+        th1.join()
+        th2.join()
+
         string send_message = "OK";
         if (send(client_socket, (void*) send_message.c_str(), send_message.length(), 0) == -1) {
           printf("Failed to send message.");

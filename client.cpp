@@ -45,7 +45,7 @@ typedef struct message {
 
 void* send_message(int client_socket, string payload) {
     send(client_socket, payload.c_str(), payload.length(), 0);
-    cout << "Payload: " << payload << endl;
+    //cout << "Payload: " << payload << endl;
     char* buffer = (char*)malloc(DEFAULT_STDIN_BUFFER_SIZE);
     read(client_socket, buffer, DEFAULT_STDIN_BUFFER_SIZE);
     
@@ -108,14 +108,16 @@ int connect_client()
 
     remote.sin_family=AF_INET;
     remote.sin_port=htons(PORT);
-    string ip = "10.128.0.2";
+    string ip = "35.225.198.147";
     remote.sin_addr.s_addr= inet_addr(ip.c_str());
  
+    cout << "Before connecting" << endl;
     if (connect(client_socket, (struct sockaddr *)&remote, sizeof(remote)) == -1) {
         printf("client connect failed: ");
+        printf("Value of errno: %d\n", errno);
         return -1;
     }
-
+    cout << "After connecting" << endl;
 
     return client_socket;
 }

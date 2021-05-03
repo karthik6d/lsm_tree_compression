@@ -174,7 +174,7 @@ pair<bool, component> level::insert_component(component c) {
 
   return pair<bool, component>(true, new_c);
 }
-
+ 
 pair<read_result, int> level::read(int key) {
   for (auto it = this->components.rbegin(); it != this->components.rend();
        ++it) {
