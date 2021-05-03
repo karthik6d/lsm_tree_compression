@@ -99,17 +99,19 @@ int connect_client()
 {
     int client_socket;
     size_t len;
-    struct sockaddr_un remote;
+    struct sockaddr_in remote;
 
-    if ((client_socket = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) {
+    if ((client_socket = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
         printf("L%d: Failed to create socket.\n", __LINE__);
         return -1;
     }
 
-    remote.sun_family = AF_UNIX;
-    strncpy(remote.sun_path, SOCK_PATH, strlen(SOCK_PATH) + 1);
-    len = strlen(remote.sun_path) + sizeof(remote.sun_family) + 1;
-    if (connect(client_socket, (struct sockaddr *)&remote, len) == -1) {
+    remote.sin_family=AF_INET;
+    remote.sin_port=htons(PORT);
+    string ip = "10.128.0.2";
+    remote.sin_addr.s_addr= inet_addr(ip.c_str());
+ 
+    if (connect(client_socket, (struct sockaddr *)&remote, sizeof(remote)) == -1) {
         printf("client connect failed: ");
         return -1;
     }

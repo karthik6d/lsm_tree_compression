@@ -43,21 +43,20 @@ void create(string db_name) {
 int setup_server() {
   int server_socket;
   size_t len;
-  struct sockaddr_un local;
+  struct sockaddr_in server_address;
 
   printf("Attempting to setup server...\n");
 
-  if ((server_socket = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) {
+  if ((server_socket = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
       printf("L%d: Failed to create socket.\n", __LINE__);
       return -1;
   }
 
-  local.sun_family = AF_UNIX;
-  strncpy(local.sun_path, SOCK_PATH, strlen(SOCK_PATH) + 1);
-  unlink(local.sun_path);
+  server_address.sin_family=AF_INET;
+  server_address.sin_port=htons(PORT);
+  server_address.sin_addr.s_addr=INADDR_ANY;
 
-  len = strlen(local.sun_path) + sizeof(local.sun_family) + 1;
-  int binder = ::bind(server_socket, (struct sockaddr *)&local, len);
+  int binder = ::bind(server_socket, (struct sockaddr *)&server_address, sizeof(server_address));
   if (binder == -1) {
       printf("L%d: Socket failed to bind.\n", __LINE__);
       return -1;
