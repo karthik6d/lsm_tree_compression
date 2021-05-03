@@ -2,7 +2,7 @@
 
 CPPFLAGS = -std=c++17 -O3 -Wall -march=native -pipe
 
-all: gen server
+all: gen server client
 
 clean:
 	rm -f gen
@@ -21,6 +21,9 @@ gen: generator/generator.go
 server: server.cpp server.h merge.cpp merge.h compression.cpp \
 	compression.h lsm_tree.cpp lsm_tree.h minheap.h
 	g++ -o server $(CPPFLAGS) server.cpp merge.cpp compression.cpp lsm_tree.cpp
+
+client: client.cpp 
+	g++ -o client $(CPPFLAGS) client.cpp
 
 format:
 	clang-format -i *.cpp *.h

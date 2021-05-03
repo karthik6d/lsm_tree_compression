@@ -16,6 +16,17 @@
 #include <tuple>
 #include <unordered_map>
 #include <vector>
+#include <unistd.h>
+#include <stdio.h>
+#include <sys/socket.h>
+#include <stdlib.h>
+#include <netinet/in.h>
+#include <sys/un.h>
+#include <string.h>
+#define PORT 8080
+#ifndef SOCK_PATH
+#define SOCK_PATH "cs165_unix_socket"
+#endif
 
 using namespace std;
 
@@ -29,148 +40,116 @@ void create(string db_name) {
   mkdir("data", 0755);
 }
 
-void load(string path) {
-  // Read data from CSV File
-  ifstream data_file(path, ios::ate);
+int setup_server() {
+  int server_socket;
+  size_t len;
+  struct sockaddr_un local;
 
-  int length = data_file.tellg();
-  data_file.close();
+  printf("Attempting to setup server...\n");
 
-  FILE* f = fopen(path.c_str(), "r");
-
-  char* data =
-      (char*)mmap(nullptr, length, PROT_READ, MAP_PRIVATE, fileno(f), 0);
-  fclose(f);
-
-  string data_str(data, data + length);
-
-  assert(munmap(data, length) == 0);
-
-  int i = 0;
-
-  int lines = count(data_str.begin(), data_str.end(), '\n');
-
-  cout << "reading csv" << endl;
-
-  istringstream ss(data_str);
-
-  string line;
-
-  while (getline(ss, line)) {
-    // cout << "\r" << ++i << "/" << lines << flush;
-
-    istringstream ss(line);
-
-    string key_s, value_s;
-
-    getline(ss, key_s, ',');
-    getline(ss, value_s, ',');
-
-    current_db->write(stoi(key_s), stoi(value_s));
+  if ((server_socket = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) {
+      printf("L%d: Failed to create socket.\n", __LINE__);
+      return -1;
   }
 
-  cout << endl;
+  local.sun_family = AF_UNIX;
+  strncpy(local.sun_path, SOCK_PATH, strlen(SOCK_PATH) + 1);
+  unlink(local.sun_path);
+
+  len = strlen(local.sun_path) + sizeof(local.sun_family) + 1;
+  int binder = ::bind(server_socket, (struct sockaddr *)&local, len);
+  if (binder == -1) {
+      printf("L%d: Socket failed to bind.\n", __LINE__);
+      return -1;
+  }
+
+  if (listen(server_socket, 5) == -1) {
+      printf("L%d: Failed to listen on socket.\n", __LINE__);
+      return -1;
+  }
+
+  return server_socket;
+}
+
+void handle_client(int client_socket) {
+  int done = 0;
+  int length = 0;
+  char* buf = (char*)malloc(1024);
+
+  do {
+    length = recv(client_socket, buf, (size_t) 1024, 0);
+    char actual_buf[(int)length + 1];
+    strncpy(actual_buf, buf, length);
+    actual_buf[(int)length] = 0;
+    string message(actual_buf);
+
+    if (length < 0) {
+      printf("Client connection close!\n");
+    }
+    else if(length == 0) {
+      done = 1;
+    }
+
+    if (!done) {
+      if(message == "create") {
+        create("name");
+        string send_message = "OK";
+        if (send(client_socket, (void*) send_message.c_str(), send_message.length(), 0) == -1) {
+          printf("Failed to send message.");
+          exit(1);
+        }
+      }
+
+      vector<string> result;
+      stringstream s_stream(message); //create string stream from the string
+      while(s_stream.good()) {
+        string substr;
+        getline(s_stream, substr, ','); //get first string delimited by comma
+        result.push_back(substr);
+      }
+
+      if(result.at(0) == "read") {
+        pair<read_result, int> r = current_db->read(stoi(result.at(1)));
+        string send_message = to_string(r.second);
+        if (send(client_socket, (void*) send_message.c_str(), send_message.length(), 0) == -1) {
+          printf("Failed to send message.");
+          exit(1);
+        }
+      }
+
+      if(result.at(0) == "write") {
+        current_db->write(stoi(result.at(1)), stoi(result.at(2)));
+        string send_message = "OK";
+        if (send(client_socket, (void*) send_message.c_str(), send_message.length(), 0) == -1) {
+          printf("Failed to send message.");
+          exit(1);
+        }
+      }
+      free(buf);
+      buf = (char*)malloc(1024);
+    }
+  } while (!done);
+
+  close(client_socket);
 }
 
 int main(int argc, char** argv) {
-  if (argc != 2) {
-    std::cout << "Need to pass in query file" << endl;
-    return 1;
+  int server_socket = setup_server();
+  if (server_socket < 0 ) { 
+    exit(1);
   }
 
-  string output_str;
-  ifstream query_file(argv[1]);
+  printf("Waiting for a connection %d ...\n", server_socket);
 
-  // Parse through workload file
-  while (getline(query_file, output_str)) {
-    istringstream ss(output_str);
-    vector<string> elements;
+  struct sockaddr_un remote;
+  socklen_t t = sizeof(remote);
+  int client_socket = 0;
 
-    do {
-      string word;
-      ss >> word;
-      elements.push_back(word);
-    } while (ss);
-
-    if (elements[0].compare("create") == 0) {
-      create(elements.at(1));
-    } else if (elements[0].compare("load") == 0) {
-      load(elements.at(1));
-
-    } else if (elements[0].compare("read") == 0) {
-      workload.push_back({read_query, stoi(elements[1]), 0});
-
-    } else if (elements[0].compare("write") == 0) {
-      workload.push_back({write_query, stoi(elements[1]), stoi(elements[2])});
-
-    } else if (elements[0].compare("delete") == 0) {
-      workload.push_back({delete_query, stoi(elements[1])});
-
-    } else if (elements[0].compare("update") == 0) {
-      workload.push_back({update_query, stoi(elements[1]), stoi(elements[2])});
-
-    } else {
-      throw runtime_error("Unknown command");
-    }
+  if ((client_socket = accept(server_socket, (struct sockaddr *)&remote, &t)) == -1) {
+      printf("L%d: Failed to accept a new connection.\n", __LINE__);
+      exit(1);
   }
 
-  cout << "starting workload" << endl;
-
-  auto result = execute_workload();
-
-  cout << "finished workload, writing results to file" << endl;
-
-  ofstream f("hello.res");
-
-  for (int r : result) {
-    f << r << endl;
-  }
-
-  f.close();
-
+  handle_client(client_socket);
   return 0;
-}
-
-vector<int> execute_workload() {
-  vector<int> res;
-
-  int i = 0;
-  for (auto e : workload) {
-    i++;
-
-    // cout << "\r" << i << "/" << workload.size() << flush;
-
-    switch (e.type) {
-      case read_query: {
-        pair<read_result, int> r = current_db->read(e.key);
-
-        if (r.first == found) {
-          res.push_back(r.second);
-        }
-
-        break;
-      }
-
-      case write_query: {
-        current_db->write(e.key, e.value);
-        break;
-      }
-
-      case delete_query: {
-        current_db->del(e.key);
-        break;
-      }
-
-      case update_query: {
-        current_db->update(e.key, e.value);
-        break;
-      }
-
-      default: { throw runtime_error("Unsupported workload command"); }
-    }
-  }
-
-  cout << endl;
-
-  return res;
 }
